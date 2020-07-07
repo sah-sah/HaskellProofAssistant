@@ -9,6 +9,8 @@ import java.util.ArrayList;
  * Maintains the html document that displays the axioms
  * We will use bootstrap package
  * https://www.w3schools.com/bootstrap/default.asp
+ * TODO: maybe we should store more information about the axioms here
+ *  TODO: in particular the patterns used
  */
 public class AxiomHtmlDoc {
 
@@ -136,5 +138,13 @@ public class AxiomHtmlDoc {
             names.add(a.name);
         }
         return names;
+    }
+
+    public String getNamedAxiom(String name) {
+        for(AxiomItem a : axiomList) {
+            if(a.name.equals(name)) return a.latex;
+        }
+        // we didn't find an axiom of the given name
+        return null;
     }
 }

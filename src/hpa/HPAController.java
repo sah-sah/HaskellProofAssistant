@@ -1,6 +1,7 @@
 package hpa;
 
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
@@ -19,6 +20,8 @@ import javafx.scene.web.WebView;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import netscape.javascript.JSObject;
 import org.json.simple.JSONArray;
@@ -317,6 +320,8 @@ public class HPAController {
                 // table for matching
                 TableView<PredicateMatching> patvarTable = new TableView<>();
                 patvarTable.setEditable(true);
+                patvarTable.setFixedCellSize(25);
+                patvarTable.prefHeightProperty().bind(Bindings.size(patvarTable.getItems()).multiply(patvarTable.getFixedCellSize()).add(50));
                 // pattern variable column
                 TableColumn<PredicateMatching, String> patvarCol = new TableColumn<>("Pattern Variable");
                 patvarCol.setCellValueFactory(cellData -> cellData.getValue().patternVariableProperty());
@@ -332,15 +337,67 @@ public class HPAController {
                 nameCol.setEditable(true);
                 patvarTable.getColumns().add(nameCol);
                 // TODO: populate the table
-                patvarTable.getItems().add(new PredicateMatching("P{P}", "Predicate", "P"));
-
-
+                axiomsCB.setOnAction(new EventHandler<ActionEvent>() {
+                    @Override public void handle(ActionEvent e) {
+                        Platform.runLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                // get axiom name
+                                String axiom = (String)axiomsCB.getValue();
+                                // get predicate for axiom
+                                if(axiom.length() > 0) {
+                                    // get predicate for name
+                                    String latex = axiomDoc.getNamedAxiom(axiom);
+                                    if(latex != null && latex.length() > 0) {
+                                        // need to escape twice, once in the string and once for the pattern
+                                        // so when pattern requires a \, it needs an escape to \\
+                                        // then string needs both \\ escaped to \\\\
+                                        // when pattern requires a }, it needs an escape to \}
+                                        // then string needs \} escaped to \\}
+                                        Pattern pattern = Pattern.compile("\\\\textrm\\{[NPE]\\}\\\\\\{[^\\\\]+\\\\\\}");
+                                        Matcher matcher = pattern.matcher(latex);
+                                        ArrayList<String> patvars = new ArrayList<>();
+                                        while(matcher.find()) {
+                                            String pv = latex.substring(matcher.start(), matcher.end());
+                                            // add to list if new
+                                            boolean found = false;
+                                            for(String s : patvars) {
+                                                if(s.equals(pv)) {
+                                                    found = true;
+                                                    break;
+                                                }
+                                            }
+                                            if(!found) patvars.add(pv);
+                                        }
+                                        // go through unique patvars
+                                        for(String pv : patvars) {
+                                            String type = pv.substring(8,9);
+                                            String name = pv.substring(12,pv.length()-2);
+                                            switch(type) {
+                                                case "N":
+                                                    patvarTable.getItems().add(new PredicateMatching("N{"+name+"}", "Name", ""));
+                                                    break;
+                                                case "P":
+                                                    patvarTable.getItems().add(new PredicateMatching("P{"+name+"}", "Predicate", ""));
+                                                    break;
+                                                case "E":
+                                                    patvarTable.getItems().add(new PredicateMatching("E{"+name+"}", "Expression", ""));
+                                                    break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
                 // add them to the box
                 box.getChildren().addAll(instantiationNameHBox, schemaNameHBox, patvarTable);
                 // update button action
                 actionBtn.setOnAction(new EventHandler<ActionEvent>() {
                     @Override public void handle(ActionEvent e) {
-                        instantiateSchema(instantiationNameText.getText(), (String)axiomsCB.getValue());
+                        // we need to get the predicate matching from the table
+                        instantiateSchema(instantiationNameText.getText(), (String)axiomsCB.getValue(), patvarTable.getItems());
                     }
                 });
                 controls = (Node) box;
@@ -350,8 +407,8 @@ public class HPAController {
         if(controls != null) actionGroup.getChildren().add(controls);
     }
 
-    private void instantiateSchema(String name, String schemaName) {
-        System.out.println("Instantiate schema " + schemaName + " as " + name);
+    private void instantiateSchema(String name, String schemaName, ObservableList<PredicateMatching> matching) {
+        System.out.println("Instantiate schema " + schemaName + " as " + name + " with matching " + matching.toString());
     }
 
     private void assume(String name, String predicateName) {
@@ -406,5 +463,6 @@ public class HPAController {
         }
 
     }
+
 }
 
