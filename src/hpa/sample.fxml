@@ -1,0 +1,52 @@
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.Tab?>
+
+<?import javafx.scene.web.WebView?>
+
+
+<?import javafx.scene.Group?>
+<BorderPane fx:controller="hpa.HPAController" xmlns:fx="http://javafx.com/fxml">
+    <center>
+        <TabPane>
+            <Tab text="Proof">
+                <WebView fx:id="displayProof"></WebView>
+            </Tab>
+            <Tab text="Axioms">
+                <WebView fx:id="displayAxioms"></WebView>
+            </Tab>
+            <Tab text="Input">
+                <WebView fx:id="displayInput"></WebView>
+            </Tab>
+        </TabPane>
+    </center>
+    <bottom>
+        <HBox spacing="10">
+            <VBox spacing="5">
+                <Label text="Choose an action"></Label>
+                <ComboBox fx:id="actionCB"></ComboBox>
+                <Button text="Take action" fx:id="actionBtn"></Button>
+            </VBox>
+            <Group fx:id="actionGroup">
+
+            </Group>
+            <!--
+            <GridPane>
+                <Button text="Up" GridPane.columnIndex="1" GridPane.rowIndex="0" minHeight="30" minWidth="50" onAction="#move"></Button>
+                <Button text="Right" GridPane.columnIndex="2" GridPane.rowIndex="1" minHeight="30" minWidth="50" onAction="#move"></Button>
+                <Button text="Down" GridPane.columnIndex="1" GridPane.rowIndex="2" minHeight="30" minWidth="50" onAction="#move"></Button>
+                <Button text="Left" GridPane.columnIndex="0" GridPane.rowIndex="1" minHeight="30" minWidth="50" onAction="#move"></Button>
+            </GridPane>
+            -->
+        </HBox>
+    </bottom>
+</BorderPane>
+
