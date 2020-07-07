@@ -2,8 +2,14 @@ package hpa;
 
 import javafx.application.Platform;
 import javafx.scene.web.WebEngine;
+import org.json.simple.JSONObject;
 
 import java.util.ArrayList;
+
+/*
+* TODO: update PredicateServer so assume and similar return info about the new result
+*
+ */
 
 public class ProofHtmlDoc {
 
@@ -60,7 +66,10 @@ public class ProofHtmlDoc {
                     "</body>\n" +
                     "</html>";
 
+    private HPAController owner;
     private ArrayList<ProofHtmlDoc.ProofItem> resultList;
+    private int nextResultNum;
+    private String nextResultName;
 
     private class ProofItem {
         // this needs more stuff
@@ -75,11 +84,16 @@ public class ProofHtmlDoc {
     // the web view
     private WebEngine engine;
 
-    public ProofHtmlDoc(WebEngine engine) {
+    public ProofHtmlDoc(HPAController owner, WebEngine engine) {
+        // set owner
+        this.owner = owner;
         // set engine
         this.engine = engine;
         // initialise axiom list
         resultList = new ArrayList<ProofHtmlDoc.ProofItem>();
+        // initialise next result data
+        nextResultNum = 1;
+        nextResultName = "R"+nextResultNum;
         // load
         load();
     }
@@ -99,20 +113,62 @@ public class ProofHtmlDoc {
     private void updateMiddle() {
         StringBuilder middle = new StringBuilder();
         for (ProofHtmlDoc.ProofItem ax : resultList) {
-            middle.append("<div class=\"row\">\n");
-            middle.append("    <div class=\"col-md-12\">\n");
-            middle.append("        <div class=\"proof-item well\">\n");
-            middle.append("            <p>");
-            middle.append("                <h4>").append(ax.name).append("</h4>\n");
-            middle.append("                <div class=\"display-math\">\n");
-            middle.append("                    \\(").append(ax.latex).append("\\)\n");
-            middle.append("                </div>\n");
-            middle.append("            </p>\n");
-            middle.append("        </div>\n");
-            middle.append("    </div>\n");
-            middle.append("</div>\n");
+            if(ax.latex != null) {
+                middle.append("<div class=\"row\">\n");
+                middle.append("    <div class=\"col-md-12\">\n");
+                middle.append("        <div class=\"proof-item well\">\n");
+                middle.append("            <p>");
+                middle.append("                <h4>").append(ax.name).append("</h4>\n");
+                middle.append("                <div class=\"display-math\">\n");
+                middle.append("                    \\(").append(ax.latex).append("\\)\n");
+                middle.append("                </div>\n");
+                middle.append("            </p>\n");
+                middle.append("        </div>\n");
+                middle.append("    </div>\n");
+                middle.append("</div>\n");
+            }
         }
         bodyMiddle = middle.toString();
     }
 
+    public String getNextResultName() {
+        return nextResultName;
+    }
+
+    public int getNextResultNum() {
+        return nextResultNum;
+    }
+
+    public void processAssume(JSONObject jo) {
+        // add the new result
+        try {
+            int ix = Integer.valueOf((String)jo.get("index"));
+        } catch (Exception e) {
+            System.out.println("Error(ProofHtmlDoc.processAssume): missing or unrecognised index field");
+            System.out.println(e);
+            return;
+        }
+        String name = (String)jo.get("name");
+        if(name == null || name.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.processAssume): missing or empty name field");
+            return;
+        }
+        // add the new result
+        resultList.add(new ProofItem(name, null));
+        // send command to get latex of name
+        owner.sendCommand(HPACommand.printResult(name));
+    }
+
+    public void updateResult(String name, String latex) {
+        for(ProofItem pi : resultList) {
+            if(pi.name.equals(name)) {
+                pi.latex = latex;
+                // update display
+                load();
+                owner.displayMessage("Assumed predicate...");
+                return;
+            }
+        }
+        System.out.println("Error(ProofHtmlDoc.updateResult): result with name " + name + " not found.");
+    }
 }

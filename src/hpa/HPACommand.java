@@ -36,6 +36,15 @@ public abstract class HPACommand {
         return cmdObj.toString();
     }
 
+    public static String assume(String name, String predicate, int resultNum) {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd","assume");
+        cmdObj.put("name", name);
+        cmdObj.put("predicate", predicate);
+        cmdObj.put("index", Integer.valueOf(resultNum).toString());
+        return cmdObj.toString();
+    }
+
     // TODO: commands for proof steps should return the completed proof step for display
     // TODO: should return all the proofstep information
 }

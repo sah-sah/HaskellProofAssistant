@@ -29,11 +29,16 @@
         </TabPane>
     </center>
     <bottom>
+        <VBox spacing="10">
+            <Label text="Info" fx:id="infoLabel"></Label>
         <HBox spacing="10">
             <VBox spacing="5">
                 <Label text="Choose an action"></Label>
                 <ComboBox fx:id="actionCB"></ComboBox>
+                <HBox spacing="5">
                 <Button text="Take action" fx:id="actionBtn"></Button>
+                <Button text="Reset" onAction="#updateActionControls"></Button>
+                </HBox>
             </VBox>
             <Group fx:id="actionGroup">
 
@@ -47,6 +52,7 @@
             </GridPane>
             -->
         </HBox>
+        </VBox>
     </bottom>
 </BorderPane>
 

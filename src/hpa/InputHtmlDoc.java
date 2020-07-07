@@ -328,6 +328,13 @@ public class InputHtmlDoc {
         return false;
     }
 
+    public String getPredicateByName(String name) {
+        for(NamedPredicate np : namedPredicates) {
+            if(np.name.equals(name)) return np.predicateRaw;
+        }
+        return null;
+    }
+
     public ArrayList<String> getNamesOfPredicates() {
         ArrayList<String> names = new ArrayList<>();
         for(NamedPredicate np : namedPredicates) {

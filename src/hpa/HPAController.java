@@ -23,7 +23,6 @@ import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import netscape.javascript.JSObject;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.*;
@@ -63,7 +62,10 @@ public class HPAController {
     private Group actionGroup;
 
     @FXML
-    private Button actionBtn;
+    private Button actionBtn, refreshBtn;
+
+    @FXML
+    private Label infoLabel;
 
     @FXML
     public void initialize() {
@@ -82,7 +84,8 @@ public class HPAController {
                 });
             }
         });
-        updateActionControls();
+
+        infoLabel.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
 
         // setup model
         try {
@@ -111,6 +114,8 @@ public class HPAController {
 
         // setup HTML file for axioms
         initializeContent();
+        // this needs to go after initializeContent
+        updateActionControls();
 
         // get list of axioms
         sendCommand(HPACommand.listAxioms());
@@ -122,7 +127,7 @@ public class HPAController {
         // set up input web view
         inputDoc = new InputHtmlDoc(this, this.displayInput.getEngine());
         // set up proof display
-        proofDoc = new ProofHtmlDoc(this.displayProof.getEngine());
+        proofDoc = new ProofHtmlDoc(this, this.displayProof.getEngine());
 
     }
 
@@ -180,8 +185,11 @@ public class HPAController {
             case "read":
                 processRead(jo);
                 break;
+            case "assume":
+                processAssume(jo);
+                break;
             default:
-                System.out.println("Error: unrecognised command");
+                System.out.println("Error(HPAController.processOutput): unrecognised command");
                 System.out.println(str);
         }
 
@@ -228,21 +236,23 @@ public class HPAController {
             System.out.println("Error: no type field");
             System.out.println(jo.toString());
         }
+        String name = (String) jo.get("name");
+        String latex = (String) jo.get("result");
+        if(name == null || latex == null) {
+            System.out.println("Error(HPAController.processPrint): no name field or no result field");
+            System.out.println(jo.toString());
+            return;
+        }
         // process by type
         switch(type) {
             case "axiom":
-                String name = (String)jo.get("name");
-                String latex = (String)jo.get("result");
-                if(name != null && latex != null) axiomDoc.updateAxiom(name, latex);
-                else {
-                    System.out.println("Error: no name field or no result field");
-                    System.out.println(jo.toString());
-                }
+                axiomDoc.updateAxiom(name, latex);
                 break;
             case "proofstep":
+                proofDoc.updateResult(name, latex);
                 break;
             default:
-                System.out.println("Error: unrecognised type");
+                System.out.println("Error(HPAController.processPrint): unrecognised type");
                 System.out.println(jo.toString());
                 break;
         }
@@ -271,6 +281,20 @@ public class HPAController {
         }
     }
 
+    private void processAssume(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to assume predicate...");
+            System.out.println("Error(HPAController.processAssume): unable to assume predicate");
+            System.out.println(jo.toString());
+            return;
+        }
+        // if status OK, send to proofDoc
+        proofDoc.processAssume(jo);
+    }
+
+    @FXML
     private void updateActionControls() {
         // remove current children
         actionGroup.getChildren().clear();
@@ -280,26 +304,32 @@ public class HPAController {
         String action = actionCB.getValue();
         switch(action) {
             // TODO: maybe put these into fxml files?
+            // TODO: we can put all these in same fxml then use setVisible/setManaged
             case assume: { // start a new scope so we can reuse variable names
                 VBox box = new VBox(10);
                 // input for name for assumption
                 Label assumptionNameLabel = new Label("Assume with name:");
-                TextField assumptionNameText = new TextField();
+                TextField assumptionNameText = new TextField(proofDoc.getNextResultName());
                 HBox assumptionNameHBox = new HBox(5);
                 assumptionNameHBox.getChildren().addAll(assumptionNameLabel, assumptionNameText);
                 // label for name of predicate (TODO: this should be a combobox - how to update it, add a refresh button?)
                 Label predicateNameLabel = new Label("Using predicate named:");
-                TextField predicateNameText = new TextField();
+                ArrayList<String> names = inputDoc.getNamesOfPredicates();
+                ObservableList<String> predicateNames = FXCollections.observableArrayList(names);
+                ComboBox<String> predicatesCB = new ComboBox<>(predicateNames);
+                // add to box
                 HBox predicateNameHBox = new HBox(5);
-                predicateNameHBox.getChildren().addAll(predicateNameLabel, predicateNameText);
+                predicateNameHBox.getChildren().addAll(predicateNameLabel, predicatesCB);
                 // add them to the main box
                 box.getChildren().addAll(assumptionNameHBox, predicateNameHBox);
                 // reset the event handler of actionBtn
                 actionBtn.setOnAction(new EventHandler<ActionEvent>() {
                     @Override public void handle(ActionEvent e) {
-                        assume(assumptionNameText.getText(), predicateNameText.getText());
+                        assume(assumptionNameText.getText().trim(), (String)predicatesCB.getValue());
                     }
                 });
+                // update action button name
+                actionBtn.setText("Assume...");
                 controls = (Node) box;
             }
                 break;
@@ -307,14 +337,14 @@ public class HPAController {
                 VBox box = new VBox(10);
                 // input for name of instantiation
                 Label instantiationNameLabel = new Label("Instantiate with name:");
-                TextField instantiationNameText = new TextField();
+                TextField instantiationNameText = new TextField(proofDoc.getNextResultName());
                 HBox instantiationNameHBox = new HBox(5);
                 instantiationNameHBox.getChildren().addAll(instantiationNameLabel, instantiationNameText);
                 // input for name of schema (TODO: this should be a combobox)
                 Label schemaNameLabel = new Label("Using schema:");
                 ArrayList<String> names = axiomDoc.getAxiomNames();
                 ObservableList<String> axioms = FXCollections.observableArrayList(names);
-                ComboBox axiomsCB = new ComboBox(axioms);
+                ComboBox<String> axiomsCB = new ComboBox<>(axioms);
                 HBox schemaNameHBox = new HBox(5);
                 schemaNameHBox.getChildren().addAll(schemaNameLabel, axiomsCB);
                 // table for matching
@@ -400,6 +430,8 @@ public class HPAController {
                         instantiateSchema(instantiationNameText.getText(), (String)axiomsCB.getValue(), patvarTable.getItems());
                     }
                 });
+                // update action button name
+                actionBtn.setText("Instantiate...");
                 controls = (Node) box;
             }
                 break;
@@ -412,7 +444,28 @@ public class HPAController {
     }
 
     private void assume(String name, String predicateName) {
-        System.out.println("Assume " + predicateName + " as " + name);
+        // check we have a name
+        if(name == null || name.length() == 0) {
+            displayMessage("Please provide name for assumed predicate");
+            return;
+        }
+        // check we have a predicate
+        String predicate = inputDoc.getPredicateByName(predicateName);
+        if(predicate == null || predicate.length() == 0) {
+            displayMessage("Please provide a predicate to assume");
+            return;
+        }
+        // send message
+        sendCommand(HPACommand.assume(name,predicate,proofDoc.getNextResultNum()));
+    }
+
+    public void displayMessage(String msg) {
+        Platform.runLater(new Runnable() {
+            @Override
+            public void run() {
+                infoLabel.setText(msg);
+            }
+        });
     }
 
     public void cleanUp() {
