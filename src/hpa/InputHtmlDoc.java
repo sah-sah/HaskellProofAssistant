@@ -1,8 +1,6 @@
 package hpa;
 
 import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.concurrent.Worker;
 import javafx.concurrent.Worker.State;
 import javafx.scene.web.WebEngine;
@@ -14,8 +12,6 @@ import java.util.ArrayList;
 import org.json.JSONObject;
 
 import org.w3c.dom.html.HTMLInputElement;
-
-import javax.naming.Name;
 
 
 /*
@@ -138,20 +134,20 @@ public class InputHtmlDoc {
     private String namedPredicateTable;
 
     // owner of this object
-    private HPAController owner;
+    private final HPAController owner;
     // the web view
-    private WebEngine engine;
+    private final WebEngine engine;
 
     // the list of named predicates
-    private class NamedPredicate {
+    private static class NamedPredicate {
         public String name;
         public String predicateRaw;
         public String predicateLaTeX;
 
         public NamedPredicate() {}
     }
-    private ArrayList<NamedPredicate> namedPredicates;
-    private ArrayList<NamedPredicate> checkedPredicates;
+    private final ArrayList<NamedPredicate> namedPredicates;
+    private final ArrayList<NamedPredicate> checkedPredicates;
 
     public InputHtmlDoc(HPAController owner, WebEngine engine) {
         // set owner
@@ -163,27 +159,23 @@ public class InputHtmlDoc {
         InputHtmlDoc docController = this;
 
         // Listening to the status of worker
-        worker.stateProperty().addListener(new ChangeListener<State>() {
+        //
+        worker.stateProperty().addListener((observable, oldValue, newValue) -> {
 
-            @Override
-            public void changed(ObservableValue<? extends State> observable, //
-                                State oldValue, State newValue) {
-
-                // When load successed.
-                if (newValue == Worker.State.SUCCEEDED) {
-                    //System.out.println("Loaded webpage");
-                    // Get window object of page.
-                    JSObject jsobj = (JSObject) engine.executeScript("window");
-                    //System.out.println(jsobj);
-                    // Set member for 'window' object.
-                    // I think this is not working -- try creating a private class
-                    jsobj.setMember("controller", docController);
-                }
+            // When load successed.
+            if (newValue == State.SUCCEEDED) {
+                //System.out.println("Loaded webpage");
+                // Get window object of page.
+                JSObject jsobj = (JSObject) engine.executeScript("window");
+                //System.out.println(jsobj);
+                // Set member for 'window' object.
+                // I think this is not working -- try creating a private class
+                jsobj.setMember("controller", docController);
             }
         });
         // set up list of named predicates
-        namedPredicates = new ArrayList<NamedPredicate>();
-        checkedPredicates = new ArrayList<NamedPredicate>();
+        namedPredicates = new ArrayList<>();
+        checkedPredicates = new ArrayList<>();
         // load
         load();
     }
@@ -192,12 +184,7 @@ public class InputHtmlDoc {
         // build the webpage
         buildNamedPredicateTable();
         // load the webpage
-        Platform.runLater(new Runnable() {
-            @Override
-            public void run() {
-                engine.loadContent(htmlTop + namedPredicateTable + htmlBottom);
-            }
-        });
+        Platform.runLater(() -> engine.loadContent(htmlTop + namedPredicateTable + htmlBottom));
     }
 
     public void checkPredicate() {
@@ -216,6 +203,7 @@ public class InputHtmlDoc {
         }
     }
 
+    /*
     public void addNamedPredicate() {
         //System.out.println("addNamedPredicate");
         // NOTE: I don't think this needs to be in a runLater call
@@ -249,6 +237,7 @@ public class InputHtmlDoc {
             System.out.println("Error: name or predicate is missing");
         }
     }
+    */
 
     public void processRead(JSONObject jo) {
         //System.out.println("InputHtmlDoc.processRead");
@@ -272,28 +261,20 @@ public class InputHtmlDoc {
             np.predicateLaTeX = result;
             checkedPredicates.add(np);
             //System.out.println("Updating display with" + result);
-            Platform.runLater(new Runnable() {
-                @Override
-                public void run() {
-                    HTMLInputElement input = (HTMLInputElement) engine.getDocument().getElementById("predicate");
-                    String inputPredicate = input.getValue();
-                    if (inputPredicate.equals(predicate)) {
-                        // update display
-                        engine.getDocument().getElementById("predicate-display").setTextContent("\\(" + result + "\\)");
-                        // NOTE: we can also limit the updating to specific DOM elements (which might
-                        // be useful if there is a lot of LaTeX on the page
-                        engine.executeScript("MathJax.Hub.Queue([\"Typeset\",MathJax.Hub]);");
-                    }
+            Platform.runLater(() -> {
+                HTMLInputElement input = (HTMLInputElement) engine.getDocument().getElementById("predicate");
+                String inputPredicate = input.getValue();
+                if (inputPredicate.equals(predicate)) {
+                    // update display
+                    engine.getDocument().getElementById("predicate-display").setTextContent("\\(" + result + "\\)");
+                    // NOTE: we can also limit the updating to specific DOM elements (which might
+                    // be useful if there is a lot of LaTeX on the page
+                    engine.executeScript("MathJax.Hub.Queue([\"Typeset\",MathJax.Hub]);");
                 }
             });
         } else {
             // failed to parse predicate
-            Platform.runLater(new Runnable() {
-                @Override
-                public void run() {
-                    engine.getDocument().getElementById("predicate-display").setTextContent("Not a valid predicate");
-                }
-            });
+            Platform.runLater(() -> engine.getDocument().getElementById("predicate-display").setTextContent("Not a valid predicate"));
         }
     }
 
@@ -321,12 +302,14 @@ public class InputHtmlDoc {
         namedPredicateTable = table.toString();
     }
 
+    /*
     public boolean namedPredicateExists(String name) {
         for(NamedPredicate np : namedPredicates) {
             if(np.name.equals(name)) return true;
         }
         return false;
     }
+    */
 
     public String getPredicateByName(String name) {
         for(NamedPredicate np : namedPredicates) {

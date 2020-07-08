@@ -6,8 +6,6 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.scene.Group;
 import javafx.scene.Node;
@@ -19,7 +17,6 @@ import javafx.scene.web.WebView;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,6 +32,7 @@ import org.json.JSONTokener;
 public class HPAController {
     private final String assume = "Assume...";
     private final String instantiateSchema = "Instantiate Schema";
+    private final String modusPonens = "Modus Ponens";
 
     // model variables (we will combine model and controller)
     HPAListenTask hpaListener;
@@ -71,7 +69,7 @@ public class HPAController {
     public void initialize() {
         // Setup interface
         // TODO: this list should be the possible proof steps/other actions
-        ObservableList<String> proofActions = FXCollections.observableArrayList(assume, instantiateSchema);
+        ObservableList<String> proofActions = FXCollections.observableArrayList(assume, instantiateSchema, modusPonens);
         actionCB.setItems(proofActions);
         actionCB.setValue("Assume...");
         actionCB.setOnAction(e -> Platform.runLater(this::updateActionControls));
@@ -312,7 +310,7 @@ public class HPAController {
                 TextField assumptionNameText = new TextField(proofDoc.getNextResultName("A"));
                 HBox assumptionNameHBox = new HBox(5);
                 assumptionNameHBox.getChildren().addAll(assumptionNameLabel, assumptionNameText);
-                // label for name of predicate (TODO: this should be a combobox - how to update it, add a refresh button?)
+                // label for name of predicate
                 Label predicateNameLabel = new Label("Using predicate named:");
                 ArrayList<String> names = inputDoc.getNamesOfPredicates();
                 ObservableList<String> predicateNames = FXCollections.observableArrayList(names);
@@ -328,6 +326,35 @@ public class HPAController {
                 actionBtn.setText("Assume...");
                 controls = box;
             }
+            case modusPonens -> {
+                VBox box = new VBox(10);
+                // input for name for new result
+                Label resultNameLabel = new Label("Name for result:");
+                TextField resultNameText = new TextField(proofDoc.getNextResultName("R"));
+                HBox resultNameHBox = new HBox(5);
+                resultNameHBox.getChildren().addAll(resultNameLabel, resultNameText);
+                // get names of predicates
+                ArrayList<String> names = axiomDoc.getAxiomNames();
+                names.addAll(proofDoc.getResultNames());
+                ObservableList<String> predicateNames = FXCollections.observableArrayList(names);
+                // label for name of predicate P -> Q
+                Label pimpqNameLabel = new Label("Where P -> Q is:");
+                ComboBox<String> pimpqCB = new ComboBox<>(predicateNames);
+                HBox pimpqNameHBox = new HBox(5);
+                pimpqNameHBox.getChildren().addAll(pimpqNameLabel, pimpqCB);
+                // label for name of predicate P
+                Label pNameLabel = new Label("Where P is:");
+                ComboBox<String> pCB = new ComboBox<>(predicateNames);
+                HBox pNameHBox = new HBox(5);
+                pNameHBox.getChildren().addAll(pNameLabel, pCB);
+                // add them to the main box
+                box.getChildren().addAll(resultNameHBox, pimpqNameHBox, pNameHBox);
+                // reset the event handler of actionBtn
+                actionBtn.setOnAction(e -> deduce(resultNameText.getText().trim(), pimpqCB.getValue(), pCB.getValue()));
+                // update action button name
+                actionBtn.setText("Deduce...");
+                controls = box;
+            }
             case instantiateSchema -> {
                 VBox box = new VBox(10);
                 // input for name of instantiation
@@ -335,7 +362,7 @@ public class HPAController {
                 TextField instantiationNameText = new TextField(proofDoc.getNextResultName("R"));
                 HBox instantiationNameHBox = new HBox(5);
                 instantiationNameHBox.getChildren().addAll(instantiationNameLabel, instantiationNameText);
-                // input for name of schema (TODO: this should be a combobox)
+                // input for name of schema (TODO: is there a way to bind contents of ComboBox to axiomDoc name list?)
                 Label schemaNameLabel = new Label("Using schema:");
                 ArrayList<String> names = axiomDoc.getAxiomNames();
                 ObservableList<String> axioms = FXCollections.observableArrayList(names);
@@ -364,7 +391,7 @@ public class HPAController {
                 // TODO: populate the table
                 axiomsCB.setOnAction(e -> Platform.runLater(() -> {
                     // get axiom name
-                    String axiom = (String) axiomsCB.getValue();
+                    String axiom = axiomsCB.getValue();
                     // get predicate for axiom
                     if (axiom.length() > 0) {
                         // get predicate for name
@@ -444,6 +471,10 @@ public class HPAController {
         }
         // send command
         sendCommand(HPACommand.instantiateSchema(proofDoc.getNextResultNum(),name,schemaName,patvars,predicates));
+    }
+
+    private void deduce(String name, String pimpq, String p) {
+        System.out.println("Deducing " + name + " from " + pimpq + " and " + p);
     }
 
     private void assume(String name, String predicateName) {

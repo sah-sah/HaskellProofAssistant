@@ -66,8 +66,8 @@ public class ProofHtmlDoc {
                     "</body>\n" +
                     "</html>";
 
-    private HPAController owner;
-    private ArrayList<ProofHtmlDoc.ProofItem> resultList;
+    private final HPAController owner;
+    private final ArrayList<ProofHtmlDoc.ProofItem> resultList;
 
     private class ProofItem {
         // this needs more stuff
@@ -81,7 +81,7 @@ public class ProofHtmlDoc {
     }
 
     // the web view
-    private WebEngine engine;
+    private final WebEngine engine;
 
     public ProofHtmlDoc(HPAController owner, WebEngine engine) {
         // set owner
@@ -89,7 +89,7 @@ public class ProofHtmlDoc {
         // set engine
         this.engine = engine;
         // initialise axiom list
-        resultList = new ArrayList<ProofHtmlDoc.ProofItem>();
+        resultList = new ArrayList<>();
         // load
         load();
     }
@@ -98,12 +98,7 @@ public class ProofHtmlDoc {
         // update the middle
         updateMiddle();
         // load the webpage
-        Platform.runLater(new Runnable() {
-            @Override
-            public void run() {
-                engine.loadContent(htmlHeader + bodyStart + bodyMiddle + bodyEnd);
-            }
-        });
+        Platform.runLater(() -> engine.loadContent(htmlHeader + bodyStart + bodyMiddle + bodyEnd));
     }
 
     private void updateMiddle() {
@@ -131,11 +126,11 @@ public class ProofHtmlDoc {
     public String getNextResultName(String prefix) {
         boolean valid = false;
         int ix = getNextResultNum() - 1;
-        String name = prefix + String.valueOf(ix);
+        String name = prefix + ix;
         // keep trying until we find a unique name
         while(!valid) {
             ix++;
-            name = prefix + String.valueOf(ix);
+            name = prefix + ix;
             valid = true;
             for(ProofItem pi : resultList) {
                 if(pi.name.equals(name)) {
@@ -225,5 +220,14 @@ public class ProofHtmlDoc {
             }
         }
         System.out.println("Error(ProofHtmlDoc.updateResult): result with name " + name + " not found.");
+    }
+
+    public ArrayList<String> getResultNames() {
+        // is there an easier way to do this? using map?
+        ArrayList<String> names = new ArrayList<>();
+        for(ProofItem pi : resultList) {
+            names.add(pi.name);
+        }
+        return names;
     }
 }

@@ -64,9 +64,9 @@ public class AxiomHtmlDoc {
                     "</body>\n" +
                     "</html>";
 
-    private ArrayList<AxiomItem> axiomList;
+    private final ArrayList<AxiomItem> axiomList;
 
-    private class AxiomItem {
+    private static class AxiomItem {
         public String name, latex;
 
         public AxiomItem(String name, String latex) {
@@ -76,13 +76,13 @@ public class AxiomHtmlDoc {
     }
 
     // the web view
-    private WebEngine engine;
+    private final WebEngine engine;
 
     public AxiomHtmlDoc(WebEngine engine) {
         // set engine
         this.engine = engine;
         // initialise axiom list
-        axiomList = new ArrayList<AxiomItem>();
+        axiomList = new ArrayList<>();
         // load
         load();
     }
@@ -91,12 +91,7 @@ public class AxiomHtmlDoc {
         // update the middle
         updateMiddle();
         // load the webpage
-        Platform.runLater(new Runnable() {
-            @Override
-            public void run() {
-                engine.loadContent(htmlHeader + bodyStart + bodyMiddle + bodyEnd);
-            }
-        });
+        Platform.runLater(() -> engine.loadContent(htmlHeader + bodyStart + bodyMiddle + bodyEnd));
     }
 
     private void updateMiddle() {
@@ -133,7 +128,7 @@ public class AxiomHtmlDoc {
     }
 
     public ArrayList<String> getAxiomNames() {
-        ArrayList<String> names = new ArrayList<String>();
+        ArrayList<String> names = new ArrayList<>();
         for(AxiomItem a : axiomList) {
             names.add(a.name);
         }
