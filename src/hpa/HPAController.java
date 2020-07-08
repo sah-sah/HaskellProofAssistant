@@ -23,6 +23,7 @@ import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import netscape.javascript.JSObject;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.*;
@@ -132,7 +133,7 @@ public class HPAController {
     }
 
     public void sendCommand(String cmd) {
-        //System.out.println("Sending command... " + cmd);
+        System.out.println("Sending command... " + cmd);
         try {
             //System.out.println(cmd);
             this.hpaWriter.write(cmd);
@@ -188,6 +189,12 @@ public class HPAController {
             case "assume":
                 processAssume(jo);
                 break;
+            case "details":
+                processDetails(jo);
+                break;
+            case "instantiateSchema":
+                processIS(jo);
+                break;
             default:
                 System.out.println("Error(HPAController.processOutput): unrecognised command");
                 System.out.println(str);
@@ -212,10 +219,8 @@ public class HPAController {
             return;
         }
         // iterate through the list
-        Iterator<String> strItr = resArray.iterator();
-        while(strItr.hasNext()) {
-            String axiom = strItr.next();
-            if(axiom != null) {
+        for (String axiom : (Iterable<String>) resArray) {
+            if (axiom != null) {
                 // get the latex for the axiom
                 sendCommand(HPACommand.printAxiom(axiom));
             }
@@ -294,6 +299,32 @@ public class HPAController {
         proofDoc.processAssume(jo);
     }
 
+    private void processIS(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to instantiate schema...");
+            System.out.println("Error(HPAController.processAssume): unable to instantiate schema");
+            System.out.println(jo.toString());
+            return;
+        }
+        // status is OK
+        proofDoc.processIS(jo);
+    }
+
+    private void processDetails(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to get result details...");
+            System.out.println("Error(HPAController.processAssume): unable to get details of result");
+            System.out.println(jo.toString());
+            return;
+        }
+        // if status OK, send to proofDoc
+        proofDoc.processDetails(jo);
+    }
+
     @FXML
     private void updateActionControls() {
         // remove current children
@@ -309,7 +340,7 @@ public class HPAController {
                 VBox box = new VBox(10);
                 // input for name for assumption
                 Label assumptionNameLabel = new Label("Assume with name:");
-                TextField assumptionNameText = new TextField(proofDoc.getNextResultName());
+                TextField assumptionNameText = new TextField(proofDoc.getNextResultName("A"));
                 HBox assumptionNameHBox = new HBox(5);
                 assumptionNameHBox.getChildren().addAll(assumptionNameLabel, assumptionNameText);
                 // label for name of predicate (TODO: this should be a combobox - how to update it, add a refresh button?)
@@ -337,7 +368,7 @@ public class HPAController {
                 VBox box = new VBox(10);
                 // input for name of instantiation
                 Label instantiationNameLabel = new Label("Instantiate with name:");
-                TextField instantiationNameText = new TextField(proofDoc.getNextResultName());
+                TextField instantiationNameText = new TextField(proofDoc.getNextResultName("R"));
                 HBox instantiationNameHBox = new HBox(5);
                 instantiationNameHBox.getChildren().addAll(instantiationNameLabel, instantiationNameText);
                 // input for name of schema (TODO: this should be a combobox)
@@ -440,7 +471,33 @@ public class HPAController {
     }
 
     private void instantiateSchema(String name, String schemaName, ObservableList<PredicateMatching> matching) {
-        System.out.println("Instantiate schema " + schemaName + " as " + name + " with matching " + matching.toString());
+        // check we have a name
+        if(name == null || name.length() == 0) {
+            displayMessage("Please provide name for instantiated schema");
+            return;
+        }
+        // check we have a predicate
+        if(schemaName == null || schemaName.length() == 0) {
+            displayMessage("Please provide a schema to instantiate");
+            return;
+        }
+        // check the matching
+        String[] patvars = new String[matching.size()];
+        String[] predicates = new String[matching.size()];
+        int ix = 0;
+        Iterator<PredicateMatching> matchingIterator = matching.iterator();
+        while(matchingIterator.hasNext()) {
+            PredicateMatching pm = matchingIterator.next();
+            patvars[ix] = pm.getPatternVariable();
+            predicates[ix] = inputDoc.getPredicateByName(pm.getMatchedName());
+            if(patvars[ix] == null || predicates[ix] == null) {
+                displayMessage("Please provide matching for schema pattern variables");
+                return;
+            }
+            ix++;
+        }
+        // send command
+        sendCommand(HPACommand.instantiateSchema(proofDoc.getNextResultNum(),name,schemaName,patvars,predicates));
     }
 
     private void assume(String name, String predicateName) {

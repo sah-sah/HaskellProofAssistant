@@ -68,12 +68,11 @@ public class ProofHtmlDoc {
 
     private HPAController owner;
     private ArrayList<ProofHtmlDoc.ProofItem> resultList;
-    private int nextResultNum;
-    private String nextResultName;
 
     private class ProofItem {
         // this needs more stuff
         public String name, latex;
+        public String assumptions;
 
         public ProofItem(String name, String latex) {
             this.name = name;
@@ -91,9 +90,6 @@ public class ProofHtmlDoc {
         this.engine = engine;
         // initialise axiom list
         resultList = new ArrayList<ProofHtmlDoc.ProofItem>();
-        // initialise next result data
-        nextResultNum = 1;
-        nextResultName = "R"+nextResultNum;
         // load
         load();
     }
@@ -114,6 +110,7 @@ public class ProofHtmlDoc {
         StringBuilder middle = new StringBuilder();
         for (ProofHtmlDoc.ProofItem ax : resultList) {
             if(ax.latex != null) {
+                // this should be in the ProofItem class
                 middle.append("<div class=\"row\">\n");
                 middle.append("    <div class=\"col-md-12\">\n");
                 middle.append("        <div class=\"proof-item well\">\n");
@@ -131,16 +128,32 @@ public class ProofHtmlDoc {
         bodyMiddle = middle.toString();
     }
 
-    public String getNextResultName() {
-        return nextResultName;
+    public String getNextResultName(String prefix) {
+        boolean valid = false;
+        int ix = getNextResultNum() - 1;
+        String name = prefix + String.valueOf(ix);
+        // keep trying until we find a unique name
+        while(!valid) {
+            ix++;
+            name = prefix + String.valueOf(ix);
+            valid = true;
+            for(ProofItem pi : resultList) {
+                if(pi.name.equals(name)) {
+                    valid = false;
+                    break;
+                }
+            }
+        }
+        return name;
     }
 
     public int getNextResultNum() {
-        return nextResultNum;
+        return resultList.size() + 1;
     }
 
     public void processAssume(JSONObject jo) {
         // add the new result
+        /*
         try {
             int ix = Integer.valueOf((String)jo.get("index"));
         } catch (Exception e) {
@@ -148,6 +161,7 @@ public class ProofHtmlDoc {
             System.out.println(e);
             return;
         }
+        */
         String name = (String)jo.get("name");
         if(name == null || name.length() == 0) {
             System.out.println("Error(ProofHtmlDoc.processAssume): missing or empty name field");
@@ -156,7 +170,48 @@ public class ProofHtmlDoc {
         // add the new result
         resultList.add(new ProofItem(name, null));
         // send command to get latex of name
-        owner.sendCommand(HPACommand.printResult(name));
+        owner.sendCommand(HPACommand.printDetails(name));
+    }
+
+    public void processIS(JSONObject jo) {
+        String name = (String)jo.get("name");
+        if(name == null || name.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.processIS): missing or empty name field");
+            return;
+        }
+        // add the new result
+        resultList.add(new ProofItem(name, null));
+        // send command to get latex of name
+        owner.sendCommand(HPACommand.printDetails(name));
+    }
+
+    public void processDetails(JSONObject jo) {
+        //System.out.println(jo);
+        // get name
+        String name = (String)jo.get("name");
+        if(name == null || name.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.processDetails): missing name field");
+            System.out.println(jo);
+            return;
+        }
+        // get latex string
+        String latex = (String)jo.get("result");
+        if(latex == null || latex.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.processDetails): missing result field");
+            System.out.println(jo);
+            return;
+        }
+        // update
+        for(ProofItem pi : resultList) {
+            if(pi.name.equals(name)) {
+                pi.latex = latex;
+                // update display
+                load();
+                owner.displayMessage("Updated predicates...");
+                return;
+            }
+        }
+        System.out.println("Error(ProofHtmlDoc.updateResult): result with name " + name + " not found.");
     }
 
     public void updateResult(String name, String latex) {
@@ -165,7 +220,7 @@ public class ProofHtmlDoc {
                 pi.latex = latex;
                 // update display
                 load();
-                owner.displayMessage("Assumed predicate...");
+                owner.displayMessage("Assumed predicate..."); // this won't always be from an assumption
                 return;
             }
         }

@@ -2,6 +2,8 @@ package hpa;
 
 import org.json.simple.JSONObject;
 
+import java.util.ArrayList;
+
 public abstract class HPACommand {
     public static String listAxioms() {
         final JSONObject cmdObj = new JSONObject();
@@ -28,6 +30,13 @@ public abstract class HPACommand {
         return printPredicate(name, false);
     }
 
+    public static String printDetails(String name) {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd","details");
+        cmdObj.put("name", name);
+        return cmdObj.toString();
+    }
+
     public static String readPredicate(String predicate, String source) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd","read");
@@ -41,7 +50,27 @@ public abstract class HPACommand {
         cmdObj.put("cmd","assume");
         cmdObj.put("name", name);
         cmdObj.put("predicate", predicate);
-        cmdObj.put("index", Integer.valueOf(resultNum).toString());
+        cmdObj.put("index", String.valueOf(resultNum));
+        return cmdObj.toString();
+    }
+
+    public static String instantiateSchema(int resultNum, String name, String schemaName, String[] patvars, String[] predicates) {
+        // check lists have same length
+        if(patvars.length != predicates.length) {
+            System.out.println("Error(HPACommand.instantiateSchema): pattern variables and predicates do not have same size");
+            return null;
+        }
+        // build JSON object
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd", "instantiateSchema");
+        cmdObj.put("name", name);
+        cmdObj.put("schema", schemaName);
+        cmdObj.put("index", String.valueOf(resultNum));
+        // add matching
+        for(int i = 0; i < patvars.length; i++) {
+            cmdObj.put(patvars[i], predicates[i]);
+        }
+        // return JSON Object as String
         return cmdObj.toString();
     }
 
