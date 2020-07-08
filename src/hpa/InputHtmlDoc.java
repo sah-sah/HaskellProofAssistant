@@ -11,7 +11,7 @@ import netscape.javascript.JSObject;
 
 import java.util.ArrayList;
 
-import org.json.simple.JSONObject;
+import org.json.JSONObject;
 
 import org.w3c.dom.html.HTMLInputElement;
 

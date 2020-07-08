@@ -23,10 +23,9 @@ import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import netscape.javascript.JSObject;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.json.JSONTokener;
 
 /*
 * TODO: we need a common way to show error messages
@@ -63,7 +62,7 @@ public class HPAController {
     private Group actionGroup;
 
     @FXML
-    private Button actionBtn, refreshBtn;
+    private Button actionBtn;
 
     @FXML
     private Label infoLabel;
@@ -75,16 +74,7 @@ public class HPAController {
         ObservableList<String> proofActions = FXCollections.observableArrayList(assume, instantiateSchema);
         actionCB.setItems(proofActions);
         actionCB.setValue("Assume...");
-        actionCB.setOnAction(new EventHandler<ActionEvent>() {
-            @Override public void handle(ActionEvent e) {
-                Platform.runLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        updateActionControls();
-                    }
-                });
-            }
-        });
+        actionCB.setOnAction(e -> Platform.runLater(this::updateActionControls));
 
         infoLabel.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
 
@@ -150,15 +140,8 @@ public class HPAController {
         JSONObject jo;
         //System.out.println(str);
         // try and parse the line
-        try {
-            // parse into JSON object
-            Object obj = new JSONParser().parse(str);
-            jo = (JSONObject) obj;
-        } catch (ParseException pe) {
-            System.out.println("Error: unrecognized message");
-            System.out.println(str);
-            return;
-        }
+        // parse into JSON object
+        jo = new JSONObject(new JSONTokener(str));
 
         // check status
         String status = (String)jo.get("status");
@@ -176,28 +159,17 @@ public class HPAController {
             return;
         }
 
-        switch(cmd) {
-            case "axioms":
-                processAxiomList(jo);
-                break;
-            case "print":
-                processPrint(jo);
-                break;
-            case "read":
-                processRead(jo);
-                break;
-            case "assume":
-                processAssume(jo);
-                break;
-            case "details":
-                processDetails(jo);
-                break;
-            case "instantiateSchema":
-                processIS(jo);
-                break;
-            default:
+        switch (cmd) {
+            case "axioms" -> processAxiomList(jo);
+            case "print" -> processPrint(jo);
+            case "read" -> processRead(jo);
+            case "assume" -> processAssume(jo);
+            case "details" -> processDetails(jo);
+            case "instantiateSchema" -> processIS(jo);
+            default -> {
                 System.out.println("Error(HPAController.processOutput): unrecognised command");
                 System.out.println(str);
+            }
         }
 
     }
@@ -212,17 +184,17 @@ public class HPAController {
             return;
         }
         // get the list of axioms
-        JSONArray resArray = (JSONArray)jo.get("result");
+        JSONArray resArray = jo.getJSONArray("result");
         if(resArray == null) {
             System.out.println("Error: no result field");
             System.out.println(jo.toString());
             return;
         }
         // iterate through the list
-        for (String axiom : (Iterable<String>) resArray) {
+        for (Object axiom : resArray) {
             if (axiom != null) {
                 // get the latex for the axiom
-                sendCommand(HPACommand.printAxiom(axiom));
+                sendCommand(HPACommand.printAxiom(axiom.toString()));
             }
         }
     }
@@ -240,6 +212,7 @@ public class HPAController {
         if(type == null) {
             System.out.println("Error: no type field");
             System.out.println(jo.toString());
+            return;
         }
         String name = (String) jo.get("name");
         String latex = (String) jo.get("result");
@@ -249,17 +222,13 @@ public class HPAController {
             return;
         }
         // process by type
-        switch(type) {
-            case "axiom":
-                axiomDoc.updateAxiom(name, latex);
-                break;
-            case "proofstep":
-                proofDoc.updateResult(name, latex);
-                break;
-            default:
+        switch (type) {
+            case "axiom" -> axiomDoc.updateAxiom(name, latex);
+            case "proofstep" -> proofDoc.updateResult(name, latex);
+            default -> {
                 System.out.println("Error(HPAController.processPrint): unrecognised type");
                 System.out.println(jo.toString());
-                break;
+            }
         }
 
     }
@@ -268,7 +237,7 @@ public class HPAController {
         //System.out.println("HPAController.processRead");
         //System.out.println(jo.toString());
         // check source
-        String source = (String)jo.get("source");
+        String source = jo.getString("source");
         if(source == null) {
             System.out.println("Error: no source field");
             System.out.println(jo.toString());
@@ -333,10 +302,10 @@ public class HPAController {
         //System.out.println(actionCB.getValue());
         Node controls = null;
         String action = actionCB.getValue();
-        switch(action) {
-            // TODO: maybe put these into fxml files?
-            // TODO: we can put all these in same fxml then use setVisible/setManaged
-            case assume: { // start a new scope so we can reuse variable names
+        // TODO: maybe put these into fxml files?
+        // TODO: we can put all these in same fxml then use setVisible/setManaged
+        switch (action) {
+            case assume -> { // start a new scope so we can reuse variable names
                 VBox box = new VBox(10);
                 // input for name for assumption
                 Label assumptionNameLabel = new Label("Assume with name:");
@@ -354,17 +323,12 @@ public class HPAController {
                 // add them to the main box
                 box.getChildren().addAll(assumptionNameHBox, predicateNameHBox);
                 // reset the event handler of actionBtn
-                actionBtn.setOnAction(new EventHandler<ActionEvent>() {
-                    @Override public void handle(ActionEvent e) {
-                        assume(assumptionNameText.getText().trim(), (String)predicatesCB.getValue());
-                    }
-                });
+                actionBtn.setOnAction(e -> assume(assumptionNameText.getText().trim(), predicatesCB.getValue()));
                 // update action button name
                 actionBtn.setText("Assume...");
-                controls = (Node) box;
+                controls = box;
             }
-                break;
-            case instantiateSchema: {
+            case instantiateSchema -> {
                 VBox box = new VBox(10);
                 // input for name of instantiation
                 Label instantiationNameLabel = new Label("Instantiate with name:");
@@ -398,74 +362,58 @@ public class HPAController {
                 nameCol.setEditable(true);
                 patvarTable.getColumns().add(nameCol);
                 // TODO: populate the table
-                axiomsCB.setOnAction(new EventHandler<ActionEvent>() {
-                    @Override public void handle(ActionEvent e) {
-                        Platform.runLater(new Runnable() {
-                            @Override
-                            public void run() {
-                                // get axiom name
-                                String axiom = (String)axiomsCB.getValue();
-                                // get predicate for axiom
-                                if(axiom.length() > 0) {
-                                    // get predicate for name
-                                    String latex = axiomDoc.getNamedAxiom(axiom);
-                                    if(latex != null && latex.length() > 0) {
-                                        // need to escape twice, once in the string and once for the pattern
-                                        // so when pattern requires a \, it needs an escape to \\
-                                        // then string needs both \\ escaped to \\\\
-                                        // when pattern requires a }, it needs an escape to \}
-                                        // then string needs \} escaped to \\}
-                                        Pattern pattern = Pattern.compile("\\\\textrm\\{[NPE]\\}\\\\\\{[^\\\\]+\\\\\\}");
-                                        Matcher matcher = pattern.matcher(latex);
-                                        ArrayList<String> patvars = new ArrayList<>();
-                                        while(matcher.find()) {
-                                            String pv = latex.substring(matcher.start(), matcher.end());
-                                            // add to list if new
-                                            boolean found = false;
-                                            for(String s : patvars) {
-                                                if(s.equals(pv)) {
-                                                    found = true;
-                                                    break;
-                                                }
-                                            }
-                                            if(!found) patvars.add(pv);
-                                        }
-                                        // go through unique patvars
-                                        for(String pv : patvars) {
-                                            String type = pv.substring(8,9);
-                                            String name = pv.substring(12,pv.length()-2);
-                                            switch(type) {
-                                                case "N":
-                                                    patvarTable.getItems().add(new PredicateMatching("N{"+name+"}", "Name", ""));
-                                                    break;
-                                                case "P":
-                                                    patvarTable.getItems().add(new PredicateMatching("P{"+name+"}", "Predicate", ""));
-                                                    break;
-                                                case "E":
-                                                    patvarTable.getItems().add(new PredicateMatching("E{"+name+"}", "Expression", ""));
-                                                    break;
-                                            }
-                                        }
+                axiomsCB.setOnAction(e -> Platform.runLater(() -> {
+                    // get axiom name
+                    String axiom = (String) axiomsCB.getValue();
+                    // get predicate for axiom
+                    if (axiom.length() > 0) {
+                        // get predicate for name
+                        String latex = axiomDoc.getNamedAxiom(axiom);
+                        if (latex != null && latex.length() > 0) {
+                            // need to escape twice, once in the string and once for the pattern
+                            // so when pattern requires a \, it needs an escape to \\
+                            // then string needs both \\ escaped to \\\\
+                            // when pattern requires a }, it needs an escape to \}
+                            // then string needs \} escaped to \\}
+                            Pattern pattern = Pattern.compile("\\\\textrm\\{[NPE]\\}\\\\\\{[^\\\\]+\\\\\\}");
+                            Matcher matcher = pattern.matcher(latex);
+                            ArrayList<String> patvars = new ArrayList<>();
+                            while (matcher.find()) {
+                                String pv = latex.substring(matcher.start(), matcher.end());
+                                // add to list if new
+                                boolean found = false;
+                                for (String s : patvars) {
+                                    if (s.equals(pv)) {
+                                        found = true;
+                                        break;
                                     }
                                 }
+                                if (!found) patvars.add(pv);
                             }
-                        });
+                            // go through unique patvars
+                            for (String pv : patvars) {
+                                String type = pv.substring(8, 9);
+                                String name = pv.substring(12, pv.length() - 2);
+                                switch (type) {
+                                    case "N" -> patvarTable.getItems().add(new PredicateMatching("N{" + name + "}", "Name", ""));
+                                    case "P" -> patvarTable.getItems().add(new PredicateMatching("P{" + name + "}", "Predicate", ""));
+                                    case "E" -> patvarTable.getItems().add(new PredicateMatching("E{" + name + "}", "Expression", ""));
+                                }
+                            }
+                        }
                     }
-                });
+                }));
                 // add them to the box
                 box.getChildren().addAll(instantiationNameHBox, schemaNameHBox, patvarTable);
                 // update button action
-                actionBtn.setOnAction(new EventHandler<ActionEvent>() {
-                    @Override public void handle(ActionEvent e) {
-                        // we need to get the predicate matching from the table
-                        instantiateSchema(instantiationNameText.getText(), (String)axiomsCB.getValue(), patvarTable.getItems());
-                    }
+                actionBtn.setOnAction(e -> {
+                    // we need to get the predicate matching from the table
+                    instantiateSchema(instantiationNameText.getText(), axiomsCB.getValue(), patvarTable.getItems());
                 });
                 // update action button name
                 actionBtn.setText("Instantiate...");
-                controls = (Node) box;
+                controls = box;
             }
-                break;
         }
         if(controls != null) actionGroup.getChildren().add(controls);
     }
@@ -485,12 +433,10 @@ public class HPAController {
         String[] patvars = new String[matching.size()];
         String[] predicates = new String[matching.size()];
         int ix = 0;
-        Iterator<PredicateMatching> matchingIterator = matching.iterator();
-        while(matchingIterator.hasNext()) {
-            PredicateMatching pm = matchingIterator.next();
+        for (PredicateMatching pm : matching) {
             patvars[ix] = pm.getPatternVariable();
             predicates[ix] = inputDoc.getPredicateByName(pm.getMatchedName());
-            if(patvars[ix] == null || predicates[ix] == null) {
+            if (patvars[ix] == null || predicates[ix] == null) {
                 displayMessage("Please provide matching for schema pattern variables");
                 return;
             }
@@ -517,12 +463,7 @@ public class HPAController {
     }
 
     public void displayMessage(String msg) {
-        Platform.runLater(new Runnable() {
-            @Override
-            public void run() {
-                infoLabel.setText(msg);
-            }
-        });
+        Platform.runLater(() -> infoLabel.setText(msg));
     }
 
     public void cleanUp() {

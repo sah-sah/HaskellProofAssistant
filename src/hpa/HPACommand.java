@@ -1,8 +1,6 @@
 package hpa;
 
-import org.json.simple.JSONObject;
-
-import java.util.ArrayList;
+import org.json.JSONObject;
 
 public abstract class HPACommand {
     public static String listAxioms() {
@@ -26,9 +24,11 @@ public abstract class HPACommand {
         return printPredicate(name, true);
     }
 
+    /*
     public static String printResult(String name) {
         return printPredicate(name, false);
     }
+    */
 
     public static String printDetails(String name) {
         final JSONObject cmdObj = new JSONObject();
@@ -46,7 +46,7 @@ public abstract class HPACommand {
     }
 
     public static String assume(String name, String predicate, int resultNum) {
-        final JSONObject cmdObj = new JSONObject();
+        final JSONObject cmdObj =  new JSONObject();
         cmdObj.put("cmd","assume");
         cmdObj.put("name", name);
         cmdObj.put("predicate", predicate);
