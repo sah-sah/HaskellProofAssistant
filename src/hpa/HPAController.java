@@ -141,7 +141,7 @@ public class HPAController {
         // parse into JSON object
         jo = new JSONObject(new JSONTokener(str));
 
-        // check status
+        // check status (TODO: maybe drop this, check status in other methods?)
         String status = (String)jo.get("status");
         if(status == null) {
             System.out.println("Error: status field expected");
@@ -164,6 +164,7 @@ public class HPAController {
             case "assume" -> processAssume(jo);
             case "details" -> processDetails(jo);
             case "instantiateSchema" -> processIS(jo);
+            case "modusPonens" -> processMP(jo);
             default -> {
                 System.out.println("Error(HPAController.processOutput): unrecognised command");
                 System.out.println(str);
@@ -277,6 +278,19 @@ public class HPAController {
         }
         // status is OK
         proofDoc.processIS(jo);
+    }
+
+    private void processMP(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to apply modus ponens...");
+            System.out.println("Error(HPAController.processModusPonens): unable to apply");
+            System.out.println(jo.toString());
+            return;
+        }
+        // status is OK
+        proofDoc.processMP(jo);
     }
 
     private void processDetails(JSONObject jo) {
@@ -474,7 +488,19 @@ public class HPAController {
     }
 
     private void deduce(String name, String pimpq, String p) {
-        System.out.println("Deducing " + name + " from " + pimpq + " and " + p);
+        if(name == null || name.length() == 0) {
+            displayMessage("Please provide a name for the result");
+            return;
+        }
+        if(pimpq == null || pimpq.length() == 0) {
+            displayMessage("Please provide P->Q predicate");
+            return;
+        }
+        if(p == null || p.length() == 0) {
+            displayMessage("Please provide P predicate");
+            return;
+        }
+        sendCommand(HPACommand.modusPonens(name, pimpq, p));
     }
 
     private void assume(String name, String predicateName) {

@@ -180,6 +180,18 @@ public class ProofHtmlDoc {
         owner.sendCommand(HPACommand.printDetails(name));
     }
 
+    public void processMP(JSONObject jo) {
+        String name = (String)jo.get("name");
+        if(name == null || name.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.processMP): missing or empty name field");
+            return;
+        }
+        // add the new result
+        resultList.add(new ProofItem(name, null));
+        // send command to get latex of name
+        owner.sendCommand(HPACommand.printDetails(name));
+    }
+
     public void processDetails(JSONObject jo) {
         //System.out.println(jo);
         // get name

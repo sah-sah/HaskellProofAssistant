@@ -74,6 +74,15 @@ public abstract class HPACommand {
         return cmdObj.toString();
     }
 
+    public static String modusPonens(String name, String pimpq, String p) {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd", "modusPonens");
+        cmdObj.put("name", name);
+        cmdObj.put("pimpqn", pimpq);
+        cmdObj.put("pn", p);
+        return cmdObj.toString();
+    }
+
     // TODO: commands for proof steps should return the completed proof step for display
     // TODO: should return all the proofstep information
 }

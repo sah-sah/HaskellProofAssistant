@@ -187,6 +187,8 @@ public class InputHtmlDoc {
         Platform.runLater(() -> engine.loadContent(htmlTop + namedPredicateTable + htmlBottom));
     }
 
+    // used in the HTML code
+    @SuppressWarnings("unused")
     public void checkPredicate() {
         //System.out.println("Checking predicate...");
         // NOTE: I don't think this needs to be in a runLater call
@@ -203,7 +205,8 @@ public class InputHtmlDoc {
         }
     }
 
-    /*
+    // This is used through the HTML code
+    @SuppressWarnings("unused")
     public void addNamedPredicate() {
         //System.out.println("addNamedPredicate");
         // NOTE: I don't think this needs to be in a runLater call
@@ -237,7 +240,6 @@ public class InputHtmlDoc {
             System.out.println("Error: name or predicate is missing");
         }
     }
-    */
 
     public void processRead(JSONObject jo) {
         //System.out.println("InputHtmlDoc.processRead");
