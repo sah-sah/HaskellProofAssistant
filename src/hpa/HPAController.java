@@ -11,6 +11,8 @@ import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.ComboBoxTableCell;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.web.WebView;
@@ -35,7 +37,9 @@ public class HPAController {
     private final String modusPonens = "Modus Ponens";
     private final String instantiateAt = "Let...";
     private final String splitAnd = "Split..";
-    private final ObservableList<String> proofActions = FXCollections.observableArrayList(assume, instantiateSchema, modusPonens, instantiateAt, splitAnd);
+    private final String setFocus = "Focus on...";
+    private final String useFocus = "Modify Focus...";
+    private final ObservableList<String> proofActions = FXCollections.observableArrayList(assume, instantiateSchema, modusPonens, instantiateAt, splitAnd, setFocus, useFocus);
 
     // model variables (we will combine model and controller)
     HPAListenTask hpaListener;
@@ -123,14 +127,15 @@ public class HPAController {
     }
 
     public void sendCommand(String cmd) {
-        System.out.println("Sending command... " + cmd);
+        //System.out.println("Sending command... " + cmd);
+        if(cmd == null) return;
         try {
             //System.out.println(cmd);
             this.hpaWriter.write(cmd);
             this.hpaWriter.newLine();
             this.hpaWriter.flush();
         } catch (Exception ex) {
-            System.out.println("PropProver.sendCommand");
+            System.out.println("Error(HPAController.sendCommand): error sending command");
             System.out.println(ex);
         }
     }
@@ -169,6 +174,7 @@ public class HPAController {
             case "modusPonens" -> processMP(jo);
             case "instantiateAt" -> processIA(jo);
             case "splitAnd" -> processSA(jo);
+            case "setFocus" -> processSF(jo);
             default -> {
                 System.out.println("Error(HPAController.processOutput): unrecognised command");
                 System.out.println(str);
@@ -322,6 +328,19 @@ public class HPAController {
         }
         // status is OK
         proofDoc.processSA(jo);
+    }
+
+    private void processSF(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to set focus...");
+            System.out.println("Error(HPAController.processSF): unable to set focus");
+            System.out.println(jo.toString());
+            return;
+        }
+        // status is OK
+        proofDoc.processSF(jo);
     }
 
     private void processDetails(JSONObject jo) {
@@ -545,6 +564,87 @@ public class HPAController {
                 actionBtn.setText("Split...");
                 controls = box;
             }
+            case setFocus -> {
+                VBox box = new VBox(10);
+                // label for name of focus
+                Label focusNameLabel = new Label("Focus on:");
+                // get names of predicates
+                ArrayList<String> names = axiomDoc.getAxiomNames();
+                names.addAll(proofDoc.getResultNames());
+                ObservableList<String> predicateNames = FXCollections.observableArrayList(names);
+                // combo box
+                ComboBox<String> focusCB = new ComboBox<>(predicateNames);
+                // add to box
+                HBox focusNameHBox = new HBox(5);
+                focusNameHBox.getChildren().addAll(focusNameLabel, focusCB);
+                // add them to the main box
+                box.getChildren().addAll(focusNameHBox);
+                // reset the event handler of actionBtn
+                actionBtn.setOnAction(e -> setFocus(focusCB.getValue()));
+                // update action button name
+                actionBtn.setText("Focus...");
+                controls = box;
+            }
+            case useFocus -> {
+                HBox box = new HBox(10);
+                GridPane movePane = new GridPane();
+                // move buttons
+                Button upBtn = new Button("Up");
+                Button rightBtn = new Button("Right");
+                Button downBtn = new Button("Down");
+                Button leftBtn = new Button("Left");
+                Button branchBtn = new Button("Take Branch:");
+                // set the size
+                movePane.getColumnConstraints().add(new ColumnConstraints(50));
+                movePane.getColumnConstraints().add(new ColumnConstraints(50));
+                movePane.getColumnConstraints().add(new ColumnConstraints(50));
+                upBtn.setPrefWidth(50);
+                rightBtn.setPrefWidth(50);
+                downBtn.setPrefWidth(50);
+                leftBtn.setPrefWidth(50);
+                branchBtn.setPrefWidth(100);
+                // set actions
+                upBtn.setOnAction(e -> moveFocus("up", null));
+                rightBtn.setOnAction(e -> moveFocus("right",null));
+                downBtn.setOnAction(e -> moveFocus("down",null));
+                leftBtn.setOnAction(e -> moveFocus("left",null));
+                // TODO: is there are way to validate (force only numbers to be entered)
+                TextField branchTextField = new TextField("1");
+                branchBtn.setOnAction(e -> moveFocus("branch",branchTextField.getText().trim()));
+                movePane.add(upBtn, 1, 0);
+                movePane.add(rightBtn, 2, 1);
+                movePane.add(downBtn, 1, 2);
+                movePane.add(leftBtn, 0, 1);
+                movePane.add(branchBtn, 0, 3, 2, 1);
+                movePane.add(branchTextField, 2, 3);
+                VBox actionBox = new VBox(10);
+                // input for name when recording
+                Label recordNameLabel = new Label("Record as:");
+                TextField recordNameText = new TextField(proofDoc.getNextResultName("R"));
+                HBox recordNameHBox = new HBox(5);
+                recordNameHBox.getChildren().addAll(recordNameLabel, recordNameText);
+                // transform using axioms
+                Button transformBtn = new Button("Transform using:");
+                ArrayList<String> names = axiomDoc.getAxiomNames();
+                names.addAll(proofDoc.getResultNames());
+                ObservableList<String> predicateNames = FXCollections.observableArrayList(names);
+                ComboBox<String> transformCB = new ComboBox<>(predicateNames);
+                HBox transformHBox = new HBox(5);
+                transformHBox.getChildren().addAll(transformBtn, transformCB);
+                transformBtn.setOnAction(e -> transformFocus(transformCB.getValue()));
+                // clear focus
+                Button clearBtn = new Button("Clear focus");
+                clearBtn.setOnAction(e -> clearFocus());
+                // add all the elements
+                actionBox.getChildren().addAll(recordNameHBox, transformHBox, clearBtn);
+                // add gridpane and vbox
+                box.getChildren().addAll(movePane, actionBox);
+                // reset the event handler of actionBtn
+                actionBtn.setOnAction(e -> recordFocus(recordNameText.getText().trim()));
+                // update action button name
+                actionBtn.setText("Record...");
+                controls = box;
+            }
         }
         if(controls != null) actionGroup.getChildren().add(controls);
     }
@@ -650,6 +750,62 @@ public class HPAController {
         }
         // send message
         sendCommand(HPACommand.splitAnd(pname,qname,pandq));
+    }
+
+    private void setFocus(String name) {
+        // check we have a name
+        if(name == null || name.length() == 0) {
+            displayMessage("Please provide name for predicate to focus on");
+            return;
+        }
+        sendCommand(HPACommand.setFocus(name));
+    }
+
+    private void recordFocus(String name) {
+        // TODO
+    }
+
+    private void moveFocus(String direction, String branch) {
+        // check direction is not null
+        if(direction == null || direction.length() == 0) {
+            displayMessage("Please specify direction to move focus");
+            return;
+        }
+        // we have a direction
+        boolean validDirection = true;
+        switch(direction) {
+            case "up" -> sendCommand(HPACommand.moveFocus(HPACommand.MoveUp));
+            case "right" -> sendCommand(HPACommand.moveFocus(HPACommand.MoveRight));
+            case "down" -> sendCommand(HPACommand.moveFocus(HPACommand.MoveDown));
+            case "left" -> sendCommand(HPACommand.moveFocus(HPACommand.MoveLeft));
+            case "branch" -> {
+                // try to read which branch
+                try {
+                    int b = Integer.parseInt(branch);
+                    if(b > 0) {
+                        sendCommand(HPACommand.moveFocus(b,true));
+                    }
+                    else {
+                        validDirection = false;
+                    }
+
+                } catch(NumberFormatException e) {
+                    validDirection = false;
+                }
+            }
+            default -> validDirection = false;
+        }
+        if(!validDirection) {
+            displayMessage("Invalid direction specified");
+        }
+    }
+
+    private void transformFocus(String logiclaw) {
+        // TODO
+    }
+
+    private void clearFocus() {
+        // TODO
     }
 
     public void displayMessage(String msg) {

@@ -45,21 +45,9 @@ public class ProofHtmlDoc {
                     "    <section class=\"proof\">";
 
     private String bodyMiddle;
+    private String bodyFocus;
 
     private final String bodyEnd =
-            "<div class=\"row\" data-spy=\"affix\">\n" +
-                    "    <div class=\"col-md-12\">\n" +
-                    "        <div class=\"focus panel panel-info\">\n" +
-                    "        Focus\n" +
-                    "        </div>\n" +
-                    "     </div>\n" +
-                    "</div>\n" +
-                    "<div class=\"row\">\n" +
-                    "    <div class=\"col-md-12\">\n" +
-                    "        <div class=\"focus-dummy\">\n" +
-                    "        </div>\n" +
-                    "    </div>\n" +
-                    "</div>\n" +
                     "</section>\n" +
                     "</div>\n" +
                     "\n" +
@@ -68,6 +56,7 @@ public class ProofHtmlDoc {
 
     private final HPAController owner;
     private final ArrayList<ProofHtmlDoc.ProofItem> resultList;
+    private ProofItem focus;
 
     private class ProofItem {
         // this needs more stuff
@@ -90,6 +79,7 @@ public class ProofHtmlDoc {
         this.engine = engine;
         // initialise axiom list
         resultList = new ArrayList<>();
+        focus = null;
         // load
         load();
     }
@@ -97,8 +87,10 @@ public class ProofHtmlDoc {
     private void load() {
         // update the middle
         updateMiddle();
+        // update the focus
+        updateFocus();
         // load the webpage
-        Platform.runLater(() -> engine.loadContent(htmlHeader + bodyStart + bodyMiddle + bodyEnd));
+        Platform.runLater(() -> engine.loadContent(htmlHeader + bodyStart + bodyMiddle + bodyFocus + bodyEnd));
     }
 
     private void updateMiddle() {
@@ -121,6 +113,28 @@ public class ProofHtmlDoc {
             }
         }
         bodyMiddle = middle.toString();
+    }
+
+    private void updateFocus() {
+        StringBuilder focusHtml = new StringBuilder();
+        focusHtml.append("<div class=\"row\" data-spy=\"affix\">\n");
+        focusHtml.append("    <div class=\"col-md-12\">\n");
+        focusHtml.append("        <div class=\"focus panel panel-info\">\n");
+        if(focus != null) {
+            focusHtml.append("\\(").append(focus.latex).append("\\)");
+        } else {
+            focusHtml.append("Focus\n");
+        }
+        focusHtml.append("        </div>\n");
+        focusHtml.append("     </div>\n");
+        focusHtml.append("</div>\n");
+        focusHtml.append("<div class=\"row\">\n");
+        focusHtml.append("    <div class=\"col-md-12\">\n");
+        focusHtml.append("        <div class=\"focus-dummy\">\n");
+        focusHtml.append("        </div>\n");
+        focusHtml.append("    </div>\n");
+        focusHtml.append("</div>\n");
+        bodyFocus = focusHtml.toString();
     }
 
     public String getNextResultName(String prefix) {
@@ -230,6 +244,20 @@ public class ProofHtmlDoc {
         owner.sendCommand(HPACommand.printDetails(qname));
     }
 
+    public void processSF(JSONObject jo) {
+        // get focus
+        String latex = (String)jo.get("focus");
+        if(latex == null || latex.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.processSF): missing or empty focus field");
+            System.out.println(jo);
+            return;
+        }
+        this.focus = new ProofItem("focus", latex);
+        load();
+        owner.displayMessage("Updated focus...");
+        //System.out.println(latex);
+    }
+
     public void processDetails(JSONObject jo) {
         //System.out.println(jo);
         // get name
@@ -260,6 +288,7 @@ public class ProofHtmlDoc {
     }
 
     /*
+    could have an addResult that takes String identifying the key used for the result name
     public void addResult(JSONObject jo) {
         String name = (String)jo.get("name");
         if(name == null || name.length() == 0) {
@@ -272,6 +301,7 @@ public class ProofHtmlDoc {
         // send command to get latex of name
         owner.sendCommand(HPACommand.printDetails(name));
     }
+    public void addResult(JSONObject jo, String nameKey)
     */
 
     public void updateResult(String name, String latex) {

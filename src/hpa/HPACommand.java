@@ -3,6 +3,11 @@ package hpa;
 import org.json.JSONObject;
 
 public abstract class HPACommand {
+    public static final int MoveUp = 0;
+    public static final int MoveRight = 1;
+    public static final int MoveDown = 2;
+    public static final int MoveLeft = 3;
+
     public static String listAxioms() {
         final JSONObject cmdObj = new JSONObject();
         // put values into object
@@ -100,6 +105,42 @@ public abstract class HPACommand {
         cmdObj.put("pandq", pandq);
         return cmdObj.toString();
     }
+
+    public static String setFocus(String name) {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd","setFocus");
+        cmdObj.put("name", name);
+        return cmdObj.toString();
+    }
     // TODO: commands for proof steps should return the completed proof step for display
     // TODO: should return all the proofstep information
+
+    public static String moveFocus(int direction) {
+        return HPACommand.moveFocus(direction, false);
+    }
+
+    public static String moveFocus(int direction, boolean isBranch) {
+        // check input
+        if((isBranch && direction > 0) || (!isBranch && direction >= 0 && direction <= 3)) {
+            final JSONObject cmdObj = new JSONObject();
+            cmdObj.put("cmd", "moveFocus");
+            if(isBranch) {
+                cmdObj.put("direction", "branch");
+                cmdObj.put("branch", String.valueOf(direction));
+            }
+            else {
+                switch(direction) {
+                    case MoveUp -> cmdObj.put("direction", "up");
+                    case MoveRight -> cmdObj.put("direction", "right");
+                    case MoveDown -> cmdObj.put("direction", "down");
+                    case MoveLeft -> cmdObj.put("direction", "left");
+                }
+            }
+            return cmdObj.toString();
+        }
+        else {
+            System.out.println("Error(HPACommand.moveFocus): invalid directions given");
+            return null;
+        }
+    }
 }
