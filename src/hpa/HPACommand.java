@@ -83,6 +83,23 @@ public abstract class HPACommand {
         return cmdObj.toString();
     }
 
+    public static String instantiateAt(String name, String fan, String xvar) {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd","instantiateAt");
+        cmdObj.put("name", name);
+        cmdObj.put("fan", fan);
+        cmdObj.put("xvarp", xvar);
+        return cmdObj.toString();
+    }
+
+    public static String splitAnd(String pname, String qname, String pandq) {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd","splitAnd");
+        cmdObj.put("pname", pname);
+        cmdObj.put("qname", qname);
+        cmdObj.put("pandq", pandq);
+        return cmdObj.toString();
+    }
     // TODO: commands for proof steps should return the completed proof step for display
     // TODO: should return all the proofstep information
 }

@@ -180,6 +180,19 @@ public class ProofHtmlDoc {
         owner.sendCommand(HPACommand.printDetails(name));
     }
 
+    // TODO: could have a general addResult function here
+    public void processIA(JSONObject jo) {
+        String name = (String)jo.get("name");
+        if(name == null || name.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.processIA): missing or empty name field");
+            return;
+        }
+        // add the new result
+        resultList.add(new ProofItem(name, null));
+        // send command to get latex of name
+        owner.sendCommand(HPACommand.printDetails(name));
+    }
+
     public void processMP(JSONObject jo) {
         String name = (String)jo.get("name");
         if(name == null || name.length() == 0) {
@@ -190,6 +203,31 @@ public class ProofHtmlDoc {
         resultList.add(new ProofItem(name, null));
         // send command to get latex of name
         owner.sendCommand(HPACommand.printDetails(name));
+    }
+
+    public void processSA(JSONObject jo) {
+        // name of P
+        String pname = (String)jo.get("pname");
+        if(pname == null || pname.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.processSA): missing or empty pname field");
+            System.out.println(jo);
+            return;
+        }
+        // add the new result
+        resultList.add(new ProofItem(pname, null));
+        // send command to get latex of name
+        owner.sendCommand(HPACommand.printDetails(pname));
+        // name of Q
+        String qname = (String)jo.get("qname");
+        if(qname == null || qname.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.processSA): missing or empty qname field");
+            System.out.println(jo);
+            return;
+        }
+        // add the new result
+        resultList.add(new ProofItem(qname, null));
+        // send command to get latex of name
+        owner.sendCommand(HPACommand.printDetails(qname));
     }
 
     public void processDetails(JSONObject jo) {
@@ -221,13 +259,28 @@ public class ProofHtmlDoc {
         System.out.println("Error(ProofHtmlDoc.updateResult): result with name " + name + " not found.");
     }
 
+    /*
+    public void addResult(JSONObject jo) {
+        String name = (String)jo.get("name");
+        if(name == null || name.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.addResult): missing or empty name field");
+            System.out.println(jo);
+            return;
+        }
+        // add the new result
+        resultList.add(new ProofItem(name, null));
+        // send command to get latex of name
+        owner.sendCommand(HPACommand.printDetails(name));
+    }
+    */
+
     public void updateResult(String name, String latex) {
         for(ProofItem pi : resultList) {
             if(pi.name.equals(name)) {
                 pi.latex = latex;
                 // update display
                 load();
-                owner.displayMessage("Assumed predicate..."); // this won't always be from an assumption
+                owner.displayMessage("Updated proof..."); // this won't always be from an assumption
                 return;
             }
         }

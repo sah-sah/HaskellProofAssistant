@@ -33,6 +33,9 @@ public class HPAController {
     private final String assume = "Assume...";
     private final String instantiateSchema = "Instantiate Schema";
     private final String modusPonens = "Modus Ponens";
+    private final String instantiateAt = "Let...";
+    private final String splitAnd = "Split..";
+    private final ObservableList<String> proofActions = FXCollections.observableArrayList(assume, instantiateSchema, modusPonens, instantiateAt, splitAnd);
 
     // model variables (we will combine model and controller)
     HPAListenTask hpaListener;
@@ -69,7 +72,6 @@ public class HPAController {
     public void initialize() {
         // Setup interface
         // TODO: this list should be the possible proof steps/other actions
-        ObservableList<String> proofActions = FXCollections.observableArrayList(assume, instantiateSchema, modusPonens);
         actionCB.setItems(proofActions);
         actionCB.setValue("Assume...");
         actionCB.setOnAction(e -> Platform.runLater(this::updateActionControls));
@@ -165,6 +167,8 @@ public class HPAController {
             case "details" -> processDetails(jo);
             case "instantiateSchema" -> processIS(jo);
             case "modusPonens" -> processMP(jo);
+            case "instantiateAt" -> processIA(jo);
+            case "splitAnd" -> processSA(jo);
             default -> {
                 System.out.println("Error(HPAController.processOutput): unrecognised command");
                 System.out.println(str);
@@ -173,6 +177,7 @@ public class HPAController {
 
     }
 
+    // TODO: these could be inlined
     private void processAxiomList(JSONObject jo) {
         //System.out.println("ProcessAxiomList");
         // check status
@@ -280,7 +285,7 @@ public class HPAController {
         proofDoc.processIS(jo);
     }
 
-    private void processMP(JSONObject jo) {
+    private void processMP(JSONObject jo)  {
         // check status
         String status = (String)jo.get("status");
         if(status.equals("FAIL")) {
@@ -291,6 +296,32 @@ public class HPAController {
         }
         // status is OK
         proofDoc.processMP(jo);
+    }
+
+    private void processIA(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to instantiate at...");
+            System.out.println("Error(HPAController.processIA): unable to instantiate at");
+            System.out.println(jo.toString());
+            return;
+        }
+        // status is OK
+        proofDoc.processIA(jo);
+    }
+
+    private void processSA(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to split and...");
+            System.out.println("Error(HPAController.processSA): unable to split and");
+            System.out.println(jo.toString());
+            return;
+        }
+        // status is OK
+        proofDoc.processSA(jo);
     }
 
     private void processDetails(JSONObject jo) {
@@ -455,6 +486,65 @@ public class HPAController {
                 actionBtn.setText("Instantiate...");
                 controls = box;
             }
+            case instantiateAt -> {
+                VBox box = new VBox(10);
+                // input for name for new result
+                Label resultNameLabel = new Label("Name for result:");
+                TextField resultNameText = new TextField(proofDoc.getNextResultName("R"));
+                HBox resultNameHBox = new HBox(5);
+                resultNameHBox.getChildren().addAll(resultNameLabel, resultNameText);
+                // get names of predicates
+                ArrayList<String> names = axiomDoc.getAxiomNames();
+                names.addAll(proofDoc.getResultNames());
+                ObservableList<String> predicateNames = FXCollections.observableArrayList(names);
+                // label for name of predicate to instantiate (forall x. P(x))
+                Label faNameLabel = new Label("Where forall x s.t. P(x). Q(x) is:");
+                ComboBox<String> faCB = new ComboBox<>(predicateNames);
+                HBox faNameHBox = new HBox(5);
+                faNameHBox.getChildren().addAll(faNameLabel, faCB);
+                // label for name of variable
+                Label xNameLabel = new Label("Where x is:");
+                ComboBox<String> xCB = new ComboBox<>(FXCollections.observableArrayList(inputDoc.getNamesOfPredicates()));
+                HBox xNameHBox = new HBox(5);
+                xNameHBox.getChildren().addAll(xNameLabel, xCB);
+                // add them to the main box
+                box.getChildren().addAll(resultNameHBox, faNameHBox, xNameHBox);
+                // reset the event handler of actionBtn
+                actionBtn.setOnAction(e -> instantiateAt(resultNameText.getText().trim(), faCB.getValue(), xCB.getValue()));
+                // update action button name
+                actionBtn.setText("Let...");
+                controls = box;
+            }
+            case splitAnd -> {
+                VBox box = new VBox(10);
+                // input for name for new results
+                // P
+                Label pResultNameLabel = new Label("Name for P in P & Q:");
+                TextField pResultNameText = new TextField(proofDoc.getNextResultName("R") + ".1");
+                HBox pResultNameHBox = new HBox(5);
+                pResultNameHBox.getChildren().addAll(pResultNameLabel, pResultNameText);
+                // Q
+                Label qResultNameLabel = new Label("Name for Q in P & Q:");
+                TextField qResultNameText = new TextField(proofDoc.getNextResultName("R") + ".2");
+                HBox qResultNameHBox = new HBox(5);
+                qResultNameHBox.getChildren().addAll(qResultNameLabel, qResultNameText);
+                // get names of predicate to split
+                ArrayList<String> names = axiomDoc.getAxiomNames();
+                names.addAll(proofDoc.getResultNames());
+                ObservableList<String> predicateNames = FXCollections.observableArrayList(names);
+                // label for name of predicate P & Q
+                Label pandqNameLabel = new Label("Where P & Q is:");
+                ComboBox<String> pandqCB = new ComboBox<>(predicateNames);
+                HBox pandqNameHBox = new HBox(5);
+                pandqNameHBox.getChildren().addAll(pandqNameLabel, pandqCB);
+                // add them to the main box
+                box.getChildren().addAll(pResultNameHBox, qResultNameHBox, pandqNameHBox);
+                // reset the event handler of actionBtn
+                actionBtn.setOnAction(e -> split(pResultNameText.getText().trim(), qResultNameText.getText().trim(), pandqCB.getValue()));
+                // update action button name
+                actionBtn.setText("Split...");
+                controls = box;
+            }
         }
         if(controls != null) actionGroup.getChildren().add(controls);
     }
@@ -487,6 +577,24 @@ public class HPAController {
         sendCommand(HPACommand.instantiateSchema(proofDoc.getNextResultNum(),name,schemaName,patvars,predicates));
     }
 
+    private void instantiateAt(String name, String fan, String xn) {
+        if(name == null || name.length() == 0) {
+            displayMessage("Please provide a name for the result");
+            return;
+        }
+        if(fan == null || fan.length() == 0) {
+            displayMessage("Please provide forall x s.t. P(x). Q(x) predicate");
+            return;
+        }
+        // check we have a predicate for the new variable name
+        String xvar = inputDoc.getPredicateByName(xn);
+        if(xvar == null || xvar.length() == 0) {
+            displayMessage("Please provide variable name");
+            return;
+        }
+        sendCommand(HPACommand.instantiateAt(name, fan, xvar));
+    }
+
     private void deduce(String name, String pimpq, String p) {
         if(name == null || name.length() == 0) {
             displayMessage("Please provide a name for the result");
@@ -517,6 +625,31 @@ public class HPAController {
         }
         // send message
         sendCommand(HPACommand.assume(name,predicate,proofDoc.getNextResultNum()));
+    }
+
+    private void split(String pname, String qname, String pandq) {
+        // check we have a name for P
+        if(pname == null || pname.length() == 0) {
+            displayMessage("Please provide name for P in P & Q");
+            return;
+        }
+        // check we have a name for Q
+        if(qname == null || qname.length() == 0) {
+            displayMessage("Please provide name for Q in P & Q");
+            return;
+        }
+        // check the names are not the same
+        if(pname.equals(qname)) {
+            displayMessage("Names must be different");
+            return;
+        }
+        // check we have a predicate name
+        if(pandq == null || pandq.length() == 0) {
+            displayMessage("Please provide name P & Q predicate");
+            return;
+        }
+        // send message
+        sendCommand(HPACommand.splitAnd(pname,qname,pandq));
     }
 
     public void displayMessage(String msg) {
