@@ -39,7 +39,8 @@ public class HPAController {
     private final String splitAnd = "Split..";
     private final String setFocus = "Focus on...";
     private final String useFocus = "Modify Focus...";
-    private final ObservableList<String> proofActions = FXCollections.observableArrayList(assume, instantiateSchema, modusPonens, instantiateAt, splitAnd, setFocus, useFocus);
+    private final String generalise = "Generalise...";
+    private final ObservableList<String> proofActions = FXCollections.observableArrayList(assume, instantiateSchema, modusPonens, instantiateAt, splitAnd, setFocus, useFocus, generalise);
 
     // model variables (we will combine model and controller)
     HPAListenTask hpaListener;
@@ -175,6 +176,11 @@ public class HPAController {
             case "instantiateAt" -> processIA(jo);
             case "splitAnd" -> processSA(jo);
             case "setFocus" -> processSF(jo);
+            case "moveFocus" -> processMF(jo);
+            case "transformFocus" -> processTF(jo);
+            case "recordFocus" -> processRF(jo);
+            case "clearFocus" -> processCF(jo);
+            case "generalise" -> processGW(jo);
             default -> {
                 System.out.println("Error(HPAController.processOutput): unrecognised command");
                 System.out.println(str);
@@ -291,6 +297,19 @@ public class HPAController {
         proofDoc.processIS(jo);
     }
 
+    private void processGW(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to generalise result...");
+            System.out.println("Error(HPAController.processGW): unable to generalise result");
+            System.out.println(jo.toString());
+            return;
+        }
+        // status is OK
+        proofDoc.processGW(jo);
+    }
+
     private void processMP(JSONObject jo)  {
         // check status
         String status = (String)jo.get("status");
@@ -341,6 +360,58 @@ public class HPAController {
         }
         // status is OK
         proofDoc.processSF(jo);
+    }
+
+    private void processMF(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to move focus...");
+            System.out.println("Error(HPAController.processMF): unable to move focus");
+            System.out.println(jo.toString());
+            return;
+        }
+        // status is OK
+        proofDoc.processMF(jo);
+    }
+
+    private void processTF(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to transform focus...");
+            System.out.println("Error(HPAController.processTF): unable to transform focus");
+            System.out.println(jo.toString());
+            return;
+        }
+        // status is OK
+        proofDoc.processTF(jo);
+    }
+
+    private void processRF(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to record focus...");
+            System.out.println("Error(HPAController.processRF): unable to record focus");
+            System.out.println(jo.toString());
+            return;
+        }
+        // status is OK
+        proofDoc.processRF(jo);
+    }
+
+    private void processCF(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to clear focus...");
+            System.out.println("Error(HPAController.processCF): unable to clear focus");
+            System.out.println(jo.toString());
+            return;
+        }
+        // status is OK
+        proofDoc.processCF(jo);
     }
 
     private void processDetails(JSONObject jo) {
@@ -499,7 +570,7 @@ public class HPAController {
                 // update button action
                 actionBtn.setOnAction(e -> {
                     // we need to get the predicate matching from the table
-                    instantiateSchema(instantiationNameText.getText(), axiomsCB.getValue(), patvarTable.getItems());
+                    instantiateSchema(instantiationNameText.getText().trim(), axiomsCB.getValue(), patvarTable.getItems());
                 });
                 // update action button name
                 actionBtn.setText("Instantiate...");
@@ -645,6 +716,37 @@ public class HPAController {
                 actionBtn.setText("Record...");
                 controls = box;
             }
+            case generalise -> {
+                VBox box = new VBox(10);
+                // input for name of instantiation
+                Label generaliseNameLabel = new Label("Generalise with name:");
+                TextField generaliseNameText = new TextField(proofDoc.getNextResultName("R"));
+                HBox generaliseNameHBox = new HBox(5);
+                generaliseNameHBox.getChildren().addAll(generaliseNameLabel, generaliseNameText);
+                // input for name of schema (TODO: is there a way to bind contents of ComboBox to axiomDoc name list?)
+                Label fromNameLabel = new Label("From result:");
+                ArrayList<String> names = proofDoc.getResultNames();
+                ObservableList<String> results = FXCollections.observableArrayList(names);
+                ComboBox<String> resultsCB = new ComboBox<>(results);
+                HBox fromNameHBox = new HBox(5);
+                fromNameHBox.getChildren().addAll(fromNameLabel, resultsCB);
+                // label for variable name
+                Label variableNameLabel = new Label("With variable:");
+                ObservableList<String> inputNames = FXCollections.observableArrayList(inputDoc.getNamesOfPredicates());
+                ComboBox<String> variableCB = new ComboBox<>(inputNames);
+                HBox variableNameHBox = new HBox(5);
+                variableNameHBox.getChildren().addAll(variableNameLabel, variableCB);
+                // add them to the box
+                box.getChildren().addAll(generaliseNameHBox, fromNameHBox, variableNameHBox);
+                // update button action
+                actionBtn.setOnAction(e -> {
+                    // we need to get the predicate matching from the table
+                    generaliseWith(generaliseNameText.getText().trim(), resultsCB.getValue(), variableCB.getValue());
+                });
+                // update action button name
+                actionBtn.setText("Generalise...");
+                controls = box;
+            }
         }
         if(controls != null) actionGroup.getChildren().add(controls);
     }
@@ -693,6 +795,27 @@ public class HPAController {
             return;
         }
         sendCommand(HPACommand.instantiateAt(name, fan, xvar));
+    }
+
+    private void generaliseWith(String name, String resultName, String variableName) {
+        // check we have a name
+        if(name == null || name.length() == 0) {
+            displayMessage("Please provide name for generalised predicate");
+            return;
+        }
+        // check we have a result to generalise
+        if(resultName == null || resultName.length() == 0) {
+            displayMessage("Please provide a result to generalise");
+            return;
+        }
+        // check we have a variable
+        String variable = inputDoc.getPredicateByName(variableName);
+        if(variable == null || variable.length() == 0) {
+            displayMessage("Please provide a variable name to use");
+            return;
+        }
+        // send message
+        sendCommand(HPACommand.generalise(name,resultName,variable));
     }
 
     private void deduce(String name, String pimpq, String p) {
@@ -762,7 +885,12 @@ public class HPAController {
     }
 
     private void recordFocus(String name) {
-        // TODO
+        // check we have a name
+        if(name == null || name.length() == 0) {
+            displayMessage("Please provide name for recording focus");
+            return;
+        }
+        sendCommand(HPACommand.recordFocus(name));
     }
 
     private void moveFocus(String direction, String branch) {
@@ -801,11 +929,16 @@ public class HPAController {
     }
 
     private void transformFocus(String logiclaw) {
-        // TODO
+        // check we have a logic law
+        if(logiclaw == null || logiclaw.length() == 0) {
+            displayMessage("Please provide a transformation law");
+            return;
+        }
+        sendCommand(HPACommand.transformFocus(logiclaw));
     }
 
     private void clearFocus() {
-        // TODO
+        sendCommand(HPACommand.clearFocus());
     }
 
     public void displayMessage(String msg) {

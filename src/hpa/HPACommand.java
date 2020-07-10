@@ -88,6 +88,15 @@ public abstract class HPACommand {
         return cmdObj.toString();
     }
 
+    public static String generalise(String name, String resultName, String variable) {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd", "generalise");
+        cmdObj.put("name", name);
+        cmdObj.put("result", resultName);
+        cmdObj.put("var", variable);
+        return cmdObj.toString();
+    }
+
     public static String instantiateAt(String name, String fan, String xvar) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd","instantiateAt");
@@ -112,8 +121,26 @@ public abstract class HPACommand {
         cmdObj.put("name", name);
         return cmdObj.toString();
     }
-    // TODO: commands for proof steps should return the completed proof step for display
-    // TODO: should return all the proofstep information
+
+    public static String transformFocus(String logiclaw) {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd","transformFocus");
+        cmdObj.put("name", logiclaw);
+        return cmdObj.toString();
+    }
+
+    public static String recordFocus(String name) {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd","recordFocus");
+        cmdObj.put("name", name);
+        return cmdObj.toString();
+    }
+
+    public static String clearFocus() {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd","clearFocus");
+        return cmdObj.toString();
+    }
 
     public static String moveFocus(int direction) {
         return HPACommand.moveFocus(direction, false);
