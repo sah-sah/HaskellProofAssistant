@@ -2,6 +2,7 @@ package hpa;
 
 import javafx.application.Platform;
 import javafx.scene.web.WebEngine;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
@@ -60,12 +61,18 @@ public class ProofHtmlDoc {
 
     private class ProofItem {
         // this needs more stuff
-        public String name, latex;
-        public String assumptions;
+        public String name, latex, type;
+        public ArrayList<String> assumptions, deductions;
 
+        public ProofItem(String name) {
+            this(name, null);
+        }
         public ProofItem(String name, String latex) {
             this.name = name;
             this.latex = latex;
+            this.type = null;
+            this.assumptions = new ArrayList<>();
+            this.deductions = new ArrayList<>();
         }
     }
 
@@ -102,10 +109,11 @@ public class ProofHtmlDoc {
                 middle.append("    <div class=\"col-md-12\">\n");
                 middle.append("        <div class=\"proof-item well\">\n");
                 middle.append("            <p>");
-                middle.append("                <h4>").append(ax.name).append("</h4>\n");
+                middle.append("                <h4>").append(ax.name).append("</h4> (<=").append(ax.assumptions.toString()).append(")\n");
                 middle.append("                <div class=\"display-math\">\n");
                 middle.append("                    \\(").append(ax.latex).append("\\)\n");
                 middle.append("                </div>\n");
+                middle.append("                Derived from: ").append(ax.deductions.toString()).append("\n");
                 middle.append("            </p>\n");
                 middle.append("        </div>\n");
                 middle.append("    </div>\n");
@@ -312,6 +320,20 @@ public class ProofHtmlDoc {
         owner.sendCommand(HPACommand.printDetails(name));
     }
 
+    public void processLR(JSONObject jo) {
+        // get focus
+        String name = (String)jo.get("name");
+        if(name == null || name.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.processLR): missing or empty name field");
+            System.out.println(jo);
+            return;
+        }
+        // add the new result
+        resultList.add(new ProofItem(name, null));
+        // send command to get latex of name
+        owner.sendCommand(HPACommand.printDetails(name));
+    }
+
     public void processCF(JSONObject jo) {
         this.focus = null;
         load();
@@ -319,7 +341,7 @@ public class ProofHtmlDoc {
     }
 
     public void processDetails(JSONObject jo) {
-        //System.out.println(jo);
+        System.out.println(jo);
         // get name
         String name = (String)jo.get("name");
         if(name == null || name.length() == 0) {
@@ -334,17 +356,45 @@ public class ProofHtmlDoc {
             System.out.println(jo);
             return;
         }
+        // get type
+        String type = (String)jo.get("type");
+        if(type == null || type.length() == 0) {
+            System.out.println("Error(ProofHtmlDoc.processDetails): missing type field");
+            System.out.println(jo);
+            return;
+        }
+        // get assumptions
+        JSONArray assumptions = jo.getJSONArray("assumptions");
+        System.out.println(assumptions.toString());
+        if (assumptions == null) {
+            System.out.println("Error(ProofHtmlDoc.processDetails): missing assumptions field");
+            System.out.println(jo);
+            return;
+        }
+        // get deductions
+        JSONArray deductions = jo.getJSONArray("deductions");
+        System.out.println(deductions.toString());
+        if (deductions == null) {
+            System.out.println("Error(ProofHtmlDoc.processDetails): missing deductions field");
+            System.out.println(jo);
+            return;
+        }
         // update
         for(ProofItem pi : resultList) {
             if(pi.name.equals(name)) {
                 pi.latex = latex;
+                pi.type = type;
+                pi.assumptions.clear();
+                for(Object a : assumptions) pi.assumptions.add(a.toString());
+                pi.deductions.clear();
+                for(Object a : deductions) pi.deductions.add(a.toString());
                 // update display
                 load();
                 owner.displayMessage("Updated predicates...");
                 return;
             }
         }
-        System.out.println("Error(ProofHtmlDoc.updateResult): result with name " + name + " not found.");
+        System.out.println("Error(ProofHtmlDoc.processDetails): result with name " + name + " not found.");
     }
 
     /*
@@ -384,5 +434,15 @@ public class ProofHtmlDoc {
             names.add(pi.name);
         }
         return names;
+    }
+
+    public ArrayList<String> getAssumptionsOfResult(String name) {
+        for(ProofItem pi : resultList) {
+            if(pi.name.equals(name)) {
+                return pi.assumptions;
+            }
+        }
+        // else we didn't find the result
+        return new ArrayList<>();
     }
 }

@@ -170,4 +170,13 @@ public abstract class HPACommand {
             return null;
         }
     }
+
+    public static String liftResult(String name, String result, String assumption) {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd","liftResult");
+        cmdObj.put("name", name);
+        cmdObj.put("result", result);
+        cmdObj.put("assumption", assumption);
+        return cmdObj.toString();
+    }
 }

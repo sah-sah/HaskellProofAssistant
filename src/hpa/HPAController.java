@@ -40,7 +40,8 @@ public class HPAController {
     private final String setFocus = "Focus on...";
     private final String useFocus = "Modify Focus...";
     private final String generalise = "Generalise...";
-    private final ObservableList<String> proofActions = FXCollections.observableArrayList(assume, instantiateSchema, modusPonens, instantiateAt, splitAnd, setFocus, useFocus, generalise);
+    private final String liftResult = "Lift result...";
+    private final ObservableList<String> proofActions = FXCollections.observableArrayList(assume, instantiateSchema, modusPonens, instantiateAt, splitAnd, setFocus, useFocus, generalise, liftResult);
 
     // model variables (we will combine model and controller)
     HPAListenTask hpaListener;
@@ -181,6 +182,7 @@ public class HPAController {
             case "recordFocus" -> processRF(jo);
             case "clearFocus" -> processCF(jo);
             case "generalise" -> processGW(jo);
+            case "liftResult" -> processLR(jo);
             default -> {
                 System.out.println("Error(HPAController.processOutput): unrecognised command");
                 System.out.println(str);
@@ -412,6 +414,19 @@ public class HPAController {
         }
         // status is OK
         proofDoc.processCF(jo);
+    }
+
+    private void processLR(JSONObject jo) {
+        // check status
+        String status = (String)jo.get("status");
+        if(status.equals("FAIL")) {
+            displayMessage("Unable to lift result...");
+            System.out.println("Error(HPAController.processLR): unable to lift result");
+            System.out.println(jo.toString());
+            return;
+        }
+        // status is OK
+        proofDoc.processLR(jo);
     }
 
     private void processDetails(JSONObject jo) {
@@ -747,6 +762,41 @@ public class HPAController {
                 actionBtn.setText("Generalise...");
                 controls = box;
             }
+            case liftResult -> {
+                VBox box = new VBox(10);
+                // input for name of lifted result
+                Label liftNameLabel = new Label("Lift with name:");
+                TextField liftNameText = new TextField(proofDoc.getNextResultName("R"));
+                HBox liftNameHBox = new HBox(5);
+                liftNameHBox.getChildren().addAll(liftNameLabel, liftNameText);
+                // input for name of result to lift
+                Label fromNameLabel = new Label("From result:");
+                ArrayList<String> names = proofDoc.getResultNames();
+                ObservableList<String> results = FXCollections.observableArrayList(names);
+                ComboBox<String> resultsCB = new ComboBox<>(results);
+                HBox fromNameHBox = new HBox(5);
+                fromNameHBox.getChildren().addAll(fromNameLabel, resultsCB);
+                // assumption to lift out of
+                Label assumptionNameLabel = new Label("Over assumption:");
+                ComboBox<String> assumptionsCB = new ComboBox<>();
+                resultsCB.setOnAction(e -> {
+                    ObservableList<String> assumptions = FXCollections.observableArrayList(proofDoc.getAssumptionsOfResult(resultsCB.getValue()));
+                    assumptionsCB.getItems().clear();
+                    assumptionsCB.getItems().addAll(assumptions);
+                });
+                HBox assumptionNameHBox = new HBox(5);
+                assumptionNameHBox.getChildren().addAll(assumptionNameLabel, assumptionsCB);
+                // add them to the box
+                box.getChildren().addAll(liftNameHBox, fromNameHBox, assumptionNameHBox);
+                // update button action
+                actionBtn.setOnAction(e -> {
+                    // we need to get the predicate matching from the table
+                    liftResult(liftNameText.getText().trim(), resultsCB.getValue(), assumptionsCB.getValue());
+                });
+                // update action button name
+                actionBtn.setText("Lift result...");
+                controls = box;
+            }
         }
         if(controls != null) actionGroup.getChildren().add(controls);
     }
@@ -795,6 +845,26 @@ public class HPAController {
             return;
         }
         sendCommand(HPACommand.instantiateAt(name, fan, xvar));
+    }
+
+    private void liftResult(String name, String result, String assumption) {
+        // check we have a name
+        if(name == null || name.length() == 0) {
+            displayMessage("Please provide name for lifted result");
+            return;
+        }
+        // check we have a result to lift
+        if(result == null || result.length() == 0) {
+            displayMessage("Please provide a result to lift");
+            return;
+        }
+        // check we have a variable
+        if(assumption == null || assumption.length() == 0) {
+            displayMessage("Please provide an assumption to lift over");
+            return;
+        }
+        // send message
+        sendCommand(HPACommand.liftResult(name,result,assumption));
     }
 
     private void generaliseWith(String name, String resultName, String variableName) {
