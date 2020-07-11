@@ -27,7 +27,10 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 
 /*
-* TODO: we need a common way to show error messages
+* TODO: (1) Saving
+*       (2) Logging for debug etc
+*       (3) Redo HTML so all pages use bootstrap 4
+*       (4) rationalise the process?? functions (we shouldn't need this many)
 *
  */
 

@@ -3,45 +3,53 @@ package hpa;
 import javafx.application.Platform;
 import javafx.scene.web.WebEngine;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-
-/*
-* TODO: update PredicateServer so assume and similar return info about the new result
-*
- */
+import java.util.List;
 
 public class ProofHtmlDoc {
 
     private final String css =
             "<style>\n" +
-                    ".affix { bottom: 0; width: 100%; z-index: 9999 !important; }\n" +
+                    "section.proof .proof-item { border-bottom: 3px solid; height: 103px; background-color:#EBF5FC; }\n" +
+                    "section.proof .proof-result { position: relative; height: 100px; }\n" +
+                    "section.proof .display-math { margin: 0; position: absolute; top: 50%; -ms-transform: translateY(-50%); transform: translateY(-50%); font-size:20px; }\n" +
+                    "section.proof a { color: gray; background-color: transparent; }\n" +
+                    "section.proof a:hover a:active { text-decoration: underline; }\n" +
+                    "section.proof .deductions { margin: 0; position: absolute; top: 80%; left: 0%; -ms-transform: translateY(-50%); transform: translateY(-50%); font-size:12px; }\n" +
+                    "section.proof .proof-name { position: relative; height: 100px; border-right: 1px dashed; }\n" +
+                    "section.proof .name { margin: 0; position: absolute; top: 50%; left: 50%; -ms-transform: translate(-50%, -50%); transform: translate(-50%, -50%); font-size: 25px; }\n" +
+                    "section.proof .assumptions { margin: 0; position: absolute; top: 15%; left: 20%; -ms-transform: translate(-50%, -50%); transform: translate(-50%, -50%); font-size:12px; white-space: nowrap; }\n" +
                     "section.proof .focus { height: 100px; }\n" +
-                    "section.proof .focus-dummy { height: 130px; }\n" +
-                    "section.proof .proof-item { text-align: left; margin-top: 5px; margin-bottom: 5px; height: 100px; }\n" +
-                    "section.proof .display-math { text-align: left; }\n" +
                     "</style>\n";
+
+    private final String popoverScript =
+            "<script>\n" +
+                    "$(document).ready(function(){\n" +
+                    "  $('[data-toggle=\"popover\"]').popover({ html: true });\n" +
+                    "});\n" +
+                    "</script>";
 
     private final String htmlHeader =
             "<!DOCTYPE html>\n" +
                     "<html lang=\"en\">\n" +
                     "<head>\n" +
                     "    <meta charset=\"UTF-8\">\n" +
-                    "    <title>Axioms</title>\n" +
-                    "\n" +
-                    "    <script src=\"https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js\"></script>\n" +
-                    "    <script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js\"></script>\n" +
+                    "    <title>Proof</title>\n" +
                     "    <script type=\"text/javascript\" async=\"async\" src=\"https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML\"></script>\n" +
-                    "\n" +
-                    "    <link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css\">\n" +
+                    "    <link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css\">\n" +
+                    "    <script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js\"></script>\n" +
+                    "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js\"></script>\n" +
+                    "    <script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js\"></script>\n" +
                     "    <link rel=\"stylesheet\" href=\"https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css\">\n" +
                     css +
+                    popoverScript +
                     "</head>";
 
     private final String bodyStart =
             "<body>\n" +
-                    "\n" +
                     "<div class=\"container-fluid\">\n" +
                     "    <section class=\"proof\">";
 
@@ -56,23 +64,76 @@ public class ProofHtmlDoc {
                     "</html>";
 
     private final HPAController owner;
-    private final ArrayList<ProofHtmlDoc.ProofItem> resultList;
+    private final List<ProofHtmlDoc.ProofItem> resultList;
     private ProofItem focus;
 
     private class ProofItem {
         // this needs more stuff
         public String name, latex, type;
-        public ArrayList<String> assumptions, deductions;
+        public List<String> assumptions;
+        public List<Deduction> deductions;
 
         public ProofItem(String name) {
             this(name, null);
         }
+
         public ProofItem(String name, String latex) {
             this.name = name;
             this.latex = latex;
             this.type = null;
             this.assumptions = new ArrayList<>();
             this.deductions = new ArrayList<>();
+        }
+
+        public String getHtml() {
+            String asText, allAsText = assumptions.toString();
+            switch(assumptions.size()) {
+                case 0 -> { asText = "[]=>"; allAsText = "None"; }
+                case 1 -> asText = assumptions.get(0) + "=>";
+                default -> asText = assumptions.get(0) + ",...=>";
+            }
+
+            StringBuilder html = new StringBuilder();
+            html.append("    <div class=\"col-2\">\n");
+            html.append("        <div class=\"proof-name\">\n");
+            html.append("            <div class=\"name\">").append(this.name).append("</div>\n");
+            html.append("                <a href=\"#\" class=\"assumptions\" data-placement=\"bottom\" data-toggle=\"popover\" title=\"<em>Assumptions</em>\" data-content=\"").append(allAsText).append("\">").append(asText).append("</a>\n");
+            html.append("        </div>\n");
+            html.append("    </div>\n");
+            html.append("    <div class=\"col-10\">\n");
+            html.append("        <div class=\"proof-result\">\n");
+            html.append("            <div class=\"display-math\">\n");
+            html.append("\\(").append(this.latex).append("\\)\n");
+            html.append("            </div>\n");
+            html.append("            <a href=\"#\" class=\"deductions\" data-toggle=\"popover\" title=\"<em>Deductions</em>\" data-content=\"<ul class='deductions-list'>");
+            for (Deduction d : deductions) html.append(d.getHtml());
+            html.append("</ul>\">Deductions</a>\n");
+            html.append("        </div>\n");
+            html.append("    </div>\n");
+            return html.toString();
+        }
+    }
+
+    private class Deduction {
+        public List<String> from;
+        public String description;
+
+        public Deduction(List<String> from, String description) {
+            this.from = from;
+            this.description = description;
+        }
+
+        public String getHtml() {
+            // return some html code for this deduction
+            // <li class='deduction-item'>R1, A2 lift result</li>
+            StringBuilder html = new StringBuilder();
+            html.append("<li class='deduction-item'>");
+            for(String r : from) {
+                html.append(r + ", ");
+            }
+            html.append(description.replaceAll("\"",""));
+            html.append("</li>");
+            return html.toString();
         }
     }
 
@@ -98,25 +159,17 @@ public class ProofHtmlDoc {
         updateFocus();
         // load the webpage
         Platform.runLater(() -> engine.loadContent(htmlHeader + bodyStart + bodyMiddle + bodyFocus + bodyEnd));
+        System.out.println(htmlHeader + bodyStart + bodyMiddle + bodyFocus + bodyEnd);
     }
 
     private void updateMiddle() {
         StringBuilder middle = new StringBuilder();
         for (ProofHtmlDoc.ProofItem ax : resultList) {
             if(ax.latex != null) {
+                System.out.println("Adding result " + ax.name);
                 // this should be in the ProofItem class
-                middle.append("<div class=\"row\">\n");
-                middle.append("    <div class=\"col-md-12\">\n");
-                middle.append("        <div class=\"proof-item well\">\n");
-                middle.append("            <p>");
-                middle.append("                <h4>").append(ax.name).append("</h4> (<=").append(ax.assumptions.toString()).append(")\n");
-                middle.append("                <div class=\"display-math\">\n");
-                middle.append("                    \\(").append(ax.latex).append("\\)\n");
-                middle.append("                </div>\n");
-                middle.append("                Derived from: ").append(ax.deductions.toString()).append("\n");
-                middle.append("            </p>\n");
-                middle.append("        </div>\n");
-                middle.append("    </div>\n");
+                middle.append("<div class=\"row proof-item\">\n");
+                middle.append(ax.getHtml());
                 middle.append("</div>\n");
             }
         }
@@ -125,20 +178,14 @@ public class ProofHtmlDoc {
 
     private void updateFocus() {
         StringBuilder focusHtml = new StringBuilder();
-        focusHtml.append("<div class=\"row\" data-spy=\"affix\">\n");
-        focusHtml.append("    <div class=\"col-md-12\">\n");
-        focusHtml.append("        <div class=\"focus panel panel-info\">\n");
+        focusHtml.append("<div class=\"row\">\n");
+        focusHtml.append("    <div class=\"col-12\">\n");
+        focusHtml.append("        <div class=\"focus border\">\n");
         if(focus != null) {
             focusHtml.append("\\(").append(focus.latex).append("\\)");
         } else {
             focusHtml.append("Focus\n");
         }
-        focusHtml.append("        </div>\n");
-        focusHtml.append("     </div>\n");
-        focusHtml.append("</div>\n");
-        focusHtml.append("<div class=\"row\">\n");
-        focusHtml.append("    <div class=\"col-md-12\">\n");
-        focusHtml.append("        <div class=\"focus-dummy\">\n");
         focusHtml.append("        </div>\n");
         focusHtml.append("    </div>\n");
         focusHtml.append("</div>\n");
@@ -341,60 +388,55 @@ public class ProofHtmlDoc {
     }
 
     public void processDetails(JSONObject jo) {
-        System.out.println(jo);
-        // get name
-        String name = (String)jo.get("name");
-        if(name == null || name.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processDetails): missing name field");
-            System.out.println(jo);
-            return;
-        }
-        // get latex string
-        String latex = (String)jo.get("result");
-        if(latex == null || latex.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processDetails): missing result field");
-            System.out.println(jo);
-            return;
-        }
-        // get type
-        String type = (String)jo.get("type");
-        if(type == null || type.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processDetails): missing type field");
-            System.out.println(jo);
-            return;
-        }
-        // get assumptions
-        JSONArray assumptions = jo.getJSONArray("assumptions");
-        System.out.println(assumptions.toString());
-        if (assumptions == null) {
-            System.out.println("Error(ProofHtmlDoc.processDetails): missing assumptions field");
-            System.out.println(jo);
-            return;
-        }
-        // get deductions
-        JSONArray deductions = jo.getJSONArray("deductions");
-        System.out.println(deductions.toString());
-        if (deductions == null) {
-            System.out.println("Error(ProofHtmlDoc.processDetails): missing deductions field");
-            System.out.println(jo);
-            return;
-        }
-        // update
-        for(ProofItem pi : resultList) {
-            if(pi.name.equals(name)) {
-                pi.latex = latex;
-                pi.type = type;
-                pi.assumptions.clear();
-                for(Object a : assumptions) pi.assumptions.add(a.toString());
-                pi.deductions.clear();
-                for(Object a : deductions) pi.deductions.add(a.toString());
-                // update display
-                load();
-                owner.displayMessage("Updated predicates...");
-                return;
+        //System.out.println(jo);
+        // parse JSON object
+        try {
+            // get name
+            String name = (String)jo.get("name");
+            // get latex string
+            String latex = (String)jo.get("result");
+            // get type
+            String type = (String)jo.get("type");
+            // get assumptions
+            JSONArray assumptionsJSON = jo.getJSONArray("assumptions");
+            List<String> assumptions = new ArrayList<>();
+            for(Object o : assumptionsJSON) assumptions.add((String)o);
+            // get deductions e.g. [ [["A1"],"LogicLaw [Transform \"commutativeAnd\"]"] ]
+            JSONArray dsJSON = jo.getJSONArray("deductions");
+            List<Deduction> deductions = new ArrayList<>();
+            for(Object o : dsJSON) {
+                // each deduction is an array
+                JSONArray d = (JSONArray) o;
+                // each deduction has two entries
+                // the first is an array of strings
+                JSONArray rs = (JSONArray)d.get(0);
+                ArrayList<String> from = new ArrayList<>();
+                for(Object s : rs) from.add((String)s);
+                // the second is a string
+                String desc = (String)d.get(1);
+                // create the Deduction object
+                deductions.add(new Deduction(from,desc));
             }
+
+            // update the proof item
+            for(ProofItem pi : resultList) {
+                if(pi.name.equals(name)) {
+                    pi.latex = latex;
+                    pi.type = type;
+                    pi.assumptions = assumptions;
+                    pi.deductions = deductions;
+                    // update display
+                    load();
+                    owner.displayMessage("Updated predicates...");
+                    return;
+                }
+            }
+            // we failed to find the name
+            System.out.println("Error(ProofHtmlDoc.processDetails): result with name " + name + " not found.");
+        } catch (JSONException | ClassCastException je) {
+            System.out.println("Error(ProofHtmlDoc.processDetails): invalid JSON data");
+            System.out.println(jo);
         }
-        System.out.println("Error(ProofHtmlDoc.processDetails): result with name " + name + " not found.");
     }
 
     /*
@@ -436,7 +478,7 @@ public class ProofHtmlDoc {
         return names;
     }
 
-    public ArrayList<String> getAssumptionsOfResult(String name) {
+    public List<String> getAssumptionsOfResult(String name) {
         for(ProofItem pi : resultList) {
             if(pi.name.equals(name)) {
                 return pi.assumptions;
