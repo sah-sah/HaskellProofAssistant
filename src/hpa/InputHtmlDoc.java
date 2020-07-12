@@ -8,10 +8,14 @@ import javafx.scene.web.WebEngine;
 import netscape.javascript.JSObject;
 
 import java.util.ArrayList;
+import java.util.List;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import org.w3c.dom.html.HTMLInputElement;
+
+import javax.naming.Name;
 
 
 /*
@@ -146,8 +150,8 @@ public class InputHtmlDoc {
 
         public NamedPredicate() {}
     }
-    private final ArrayList<NamedPredicate> namedPredicates;
-    private final ArrayList<NamedPredicate> checkedPredicates;
+    private final List<NamedPredicate> namedPredicates;
+    private final List<NamedPredicate> checkedPredicates;
 
     public InputHtmlDoc(HPAController owner, WebEngine engine) {
         // set owner
@@ -200,7 +204,7 @@ public class InputHtmlDoc {
         //System.out.println("Predicate to check is .. " + predicate);
         if(predicate.length() > 0) {
             // check this predicate
-            owner.sendCommand(HPACommand.readPredicate(predicate, "InputHtmlDoc"));
+            owner.sendCommand(HPACommand.readPredicate("inputDoc", predicate));
             engine.getDocument().getElementById("predicate-display").setTextContent("Checking predicate...");
         }
     }
@@ -227,7 +231,7 @@ public class InputHtmlDoc {
             for (NamedPredicate i : checkedPredicates) {
                 //System.out.println("Checking against...|" + i.predicateRaw + "|");
                 if (i.predicateRaw.equals(predicate)) {
-                    System.out.println("Found checked predicate...");
+                    //System.out.println("Found checked predicate...");
                     np.predicateLaTeX = i.predicateLaTeX;
                     namedPredicates.add(np);
                     load();
@@ -235,12 +239,66 @@ public class InputHtmlDoc {
                 }
             }
             // we did not find a checked predicate
-            System.out.println("Error: predicate to add has not been checked");
+            System.out.println("Error(InputHtmlDoc.addNamedPredicate): predicate to add has not been checked");
         } else {
-            System.out.println("Error: name or predicate is missing");
+            System.out.println("Error(InputHtmlDoc.addNamedPredicate): name or predicate is missing");
         }
     }
 
+    public void processResponse(String cmd, JSONObject jo) {
+        switch(cmd) {
+            case "read" -> {
+                try {
+                    String result = (String) jo.get("result");
+                    String predicate = (String) jo.get("predicate");
+                    // add predicate to the list of checked predicates
+                    NamedPredicate np = new NamedPredicate();
+                    np.predicateRaw = predicate;
+                    np.predicateLaTeX = result;
+                    addCheckedPredicate(np);
+                    // update display
+                    Platform.runLater(() -> {
+                        HTMLInputElement input = (HTMLInputElement) engine.getDocument().getElementById("predicate");
+                        String inputPredicate = input.getValue();
+                        if (inputPredicate.equals(predicate)) {
+                            // update display
+                            engine.getDocument().getElementById("predicate-display").setTextContent("\\(" + result + "\\)");
+                            // NOTE: we can also limit the updating to specific DOM elements (which might
+                            // be useful if there is a lot of LaTeX on the page
+                            engine.executeScript("MathJax.Hub.Queue([\"Typeset\",MathJax.Hub]);");
+                        }
+                    });
+                } catch (JSONException | ClassCastException je) {
+                    System.out.println("Error(InputHtmlDoc.processResponse): invalid JSON object");
+                    System.out.println(jo);
+                }
+            }
+            default -> {
+                System.out.println("Error(InputHtmlDoc.processResponse): unknown command");
+                System.out.println(jo);
+            }
+        }
+    }
+
+    public void failedRead(JSONObject jo) {
+        try {
+            String predicate = (String) jo.get("predicate");
+            // update display if raw predicates match
+            Platform.runLater(() -> {
+                HTMLInputElement input = (HTMLInputElement) engine.getDocument().getElementById("predicate");
+                String inputPredicate = input.getValue();
+                if (inputPredicate.equals(predicate)) {
+                    // update display
+                    Platform.runLater(() -> engine.getDocument().getElementById("predicate-display").setTextContent("Not a valid predicate"));
+                }
+            });
+        } catch (JSONException | ClassCastException je) {
+            System.out.println("Error(InputHtmlDoc.processResponse): invalid JSON object");
+            System.out.println(jo);
+        }
+    }
+
+    // we should be able to delete this now
     public void processRead(JSONObject jo) {
         //System.out.println("InputHtmlDoc.processRead");
         //System.out.println(jo.toString());
@@ -312,6 +370,14 @@ public class InputHtmlDoc {
         return false;
     }
     */
+
+    private void addCheckedPredicate(NamedPredicate np) {
+        for(NamedPredicate cp : checkedPredicates) {
+            if(cp.predicateRaw.equals(np.predicateRaw)) return; // no
+        }
+        // else add it
+        checkedPredicates.add(np);
+    }
 
     public String getPredicateByName(String name) {
         for(NamedPredicate np : namedPredicates) {

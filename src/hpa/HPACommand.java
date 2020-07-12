@@ -8,175 +8,173 @@ public abstract class HPACommand {
     public static final int MoveDown = 2;
     public static final int MoveLeft = 3;
 
-    public static String listAxioms() {
+    public static JSONObject listAxioms(String handler) {
         final JSONObject cmdObj = new JSONObject();
         // put values into object
         cmdObj.put("cmd", "axioms");
-        //cmdObj.put("other", "stuff");
-        //System.out.println(cmdObj.toString());
-        return cmdObj.toString();
+        cmdObj.put("handler", handler);
+        return cmdObj;
     }
 
-    private static String printPredicate(String name, boolean isAxiom) {
+    public static JSONObject printPredicate(String handler, String name, boolean isAxiom) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd", "print");
+        cmdObj.put("handler", handler);
         cmdObj.put("name", name);
         cmdObj.put("type", isAxiom ? "axiom" : "proofstep");
-        return cmdObj.toString();
+        return cmdObj;
     }
 
-    public static String printAxiom(String name) {
-        return printPredicate(name, true);
+    public static JSONObject printAxiom(String handler, String name) {
+        return printPredicate(handler, name, true);
     }
 
-    /*
-    public static String printResult(String name) {
-        return printPredicate(name, false);
-    }
-    */
-
-    public static String printDetails(String name) {
+    public static JSONObject printDetails(String handler, String name) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd","details");
         cmdObj.put("name", name);
-        return cmdObj.toString();
+        cmdObj.put("handler", handler);
+        return cmdObj;
     }
 
-    public static String readPredicate(String predicate, String source) {
+    public static JSONObject readPredicate(String handler, String predicate) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd","read");
         cmdObj.put("predicate",predicate);
-        cmdObj.put("source", source);
-        return cmdObj.toString();
+        cmdObj.put("handler", handler);
+        return cmdObj;
     }
 
-    public static String assume(String name, String predicate, int resultNum) {
+    public static JSONObject assume(String handler, String name, String predicate) {
         final JSONObject cmdObj =  new JSONObject();
         cmdObj.put("cmd","assume");
         cmdObj.put("name", name);
         cmdObj.put("predicate", predicate);
-        cmdObj.put("index", String.valueOf(resultNum));
-        return cmdObj.toString();
+        cmdObj.put("handler", handler);
+        return cmdObj;
     }
 
-    public static String instantiateSchema(int resultNum, String name, String schemaName, String[] patvars, String[] predicates) {
-        // check lists have same length
-        if(patvars.length != predicates.length) {
-            System.out.println("Error(HPACommand.instantiateSchema): pattern variables and predicates do not have same size");
-            return null;
-        }
+    public static JSONObject instantiateSchema(String handler, String name, String schemaName, String[] patvars, String[] predicates) {
         // build JSON object
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd", "instantiateSchema");
         cmdObj.put("name", name);
         cmdObj.put("schema", schemaName);
-        cmdObj.put("index", String.valueOf(resultNum));
+        cmdObj.put("handler", handler);
         // add matching
-        for(int i = 0; i < patvars.length; i++) {
-            cmdObj.put(patvars[i], predicates[i]);
+        if(patvars.length == predicates.length && patvars.length > 0) {
+            for (int i = 0; i < patvars.length; i++) {
+                cmdObj.put(patvars[i], predicates[i]);
+            }
+        } else {
+            System.out.println("Warning(HPACommand.instantiateSchema): pattern variables and predicates do not have same size, not added to command");
+            System.out.println(cmdObj.toString());
         }
         // return JSON Object as String
-        return cmdObj.toString();
+        return cmdObj;
     }
 
-    public static String modusPonens(String name, String pimpq, String p) {
+    public static JSONObject modusPonens(String handler, String name, String pimpq, String p) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd", "modusPonens");
+        cmdObj.put("handler", handler);
         cmdObj.put("name", name);
         cmdObj.put("pimpqn", pimpq);
         cmdObj.put("pn", p);
-        return cmdObj.toString();
+        return cmdObj;
     }
 
-    public static String generalise(String name, String resultName, String variable) {
+    public static JSONObject generalise(String handler, String name, String resultName, String variable) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd", "generalise");
+        cmdObj.put("handler", handler);
         cmdObj.put("name", name);
         cmdObj.put("result", resultName);
         cmdObj.put("var", variable);
-        return cmdObj.toString();
+        return cmdObj;
     }
 
-    public static String instantiateAt(String name, String fan, String xvar) {
+    public static JSONObject instantiateAt(String handler, String name, String fan, String xvar) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd","instantiateAt");
+        cmdObj.put("handler", handler);
         cmdObj.put("name", name);
         cmdObj.put("fan", fan);
         cmdObj.put("xvarp", xvar);
-        return cmdObj.toString();
+        return cmdObj;
     }
 
-    public static String splitAnd(String pname, String qname, String pandq) {
+    public static JSONObject splitAnd(String handler, String pname, String qname, String pandq) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd","splitAnd");
+        cmdObj.put("handler", handler);
         cmdObj.put("pname", pname);
         cmdObj.put("qname", qname);
         cmdObj.put("pandq", pandq);
-        return cmdObj.toString();
+        return cmdObj;
     }
 
-    public static String setFocus(String name) {
+    public static JSONObject setFocus(String handler, String name) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd","setFocus");
+        cmdObj.put("handler", handler);
         cmdObj.put("name", name);
-        return cmdObj.toString();
+        return cmdObj;
     }
 
-    public static String transformFocus(String logiclaw) {
+    public static JSONObject transformFocus(String handler, String logiclaw) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd","transformFocus");
+        cmdObj.put("handler", handler);
         cmdObj.put("name", logiclaw);
-        return cmdObj.toString();
+        return cmdObj;
     }
 
-    public static String recordFocus(String name) {
+    public static JSONObject recordFocus(String handler, String name) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd","recordFocus");
+        cmdObj.put("handler", handler);
         cmdObj.put("name", name);
-        return cmdObj.toString();
+        return cmdObj;
     }
 
-    public static String clearFocus() {
+    public static JSONObject clearFocus(String handler) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd","clearFocus");
-        return cmdObj.toString();
+        cmdObj.put("handler", handler);
+        return cmdObj;
     }
 
-    public static String moveFocus(int direction) {
-        return HPACommand.moveFocus(direction, false);
+    public static JSONObject moveFocus(String handler, int direction) {
+        return HPACommand.moveFocus(handler, direction, false);
     }
 
-    public static String moveFocus(int direction, boolean isBranch) {
-        // check input
-        if((isBranch && direction > 0) || (!isBranch && direction >= 0 && direction <= 3)) {
-            final JSONObject cmdObj = new JSONObject();
-            cmdObj.put("cmd", "moveFocus");
-            if(isBranch) {
-                cmdObj.put("direction", "branch");
-                cmdObj.put("branch", String.valueOf(direction));
-            }
-            else {
-                switch(direction) {
-                    case MoveUp -> cmdObj.put("direction", "up");
-                    case MoveRight -> cmdObj.put("direction", "right");
-                    case MoveDown -> cmdObj.put("direction", "down");
-                    case MoveLeft -> cmdObj.put("direction", "left");
-                }
-            }
-            return cmdObj.toString();
+    public static JSONObject moveFocus(String handler, int direction, boolean isBranch) {
+        final JSONObject cmdObj = new JSONObject();
+        cmdObj.put("cmd", "moveFocus");
+        cmdObj.put("handler", handler);
+        if(isBranch) {
+            cmdObj.put("direction", "branch");
+            cmdObj.put("branch", String.valueOf(direction));
         }
         else {
-            System.out.println("Error(HPACommand.moveFocus): invalid directions given");
-            return null;
+            switch(direction) {
+                case MoveUp -> cmdObj.put("direction", "up");
+                case MoveRight -> cmdObj.put("direction", "right");
+                case MoveDown -> cmdObj.put("direction", "down");
+                case MoveLeft -> cmdObj.put("direction", "left");
+            }
         }
+        return cmdObj;
     }
 
-    public static String liftResult(String name, String result, String assumption) {
+    public static JSONObject liftResult(String handler, String name, String result, String assumption) {
         final JSONObject cmdObj = new JSONObject();
         cmdObj.put("cmd","liftResult");
+        cmdObj.put("handler", handler);
         cmdObj.put("name", name);
         cmdObj.put("result", result);
         cmdObj.put("assumption", assumption);
-        return cmdObj.toString();
+        return cmdObj;
     }
 }

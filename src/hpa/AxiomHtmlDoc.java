@@ -2,6 +2,9 @@ package hpa;
 
 import javafx.application.Platform;
 import javafx.scene.web.WebEngine;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 
@@ -75,10 +78,14 @@ public class AxiomHtmlDoc {
         }
     }
 
+    // owner of this object
+    private final HPAController owner;
     // the web view
     private final WebEngine engine;
 
-    public AxiomHtmlDoc(WebEngine engine) {
+    public AxiomHtmlDoc(HPAController owner, WebEngine engine) {
+        // set owner
+        this.owner = owner;
         // set engine
         this.engine = engine;
         // initialise axiom list
@@ -111,6 +118,35 @@ public class AxiomHtmlDoc {
             middle.append("</div>\n");
         }
         bodyMiddle = middle.toString();
+    }
+
+    public void processResponse(String cmd, JSONObject jo) {
+        switch(cmd) {
+            case "axioms" -> {
+                // get the list of axioms and get their latex values
+                try {
+                    JSONArray resArray = jo.getJSONArray("result");
+                    for(Object axiom : resArray) owner.sendCommand(HPACommand.printAxiom("axiomDoc", axiom.toString()));
+                } catch (JSONException je) {
+                    System.out.println("Error(AxiomDocHtml.processResponse): invalid response JSON object");
+                    System.out.println(jo);
+                }
+            }
+            case "print" -> {
+                try {
+                    String name = (String) jo.get("name");
+                    String latex = (String) jo.get("result");
+                    updateAxiom(name, latex);
+                } catch (JSONException | ClassCastException je) {
+                    System.out.println("Error(AxiomDocHtml.processResponse): invalid response JSON object");
+                    System.out.println(jo);
+                }
+            }
+            default -> {
+                System.out.println("Error(AxiomDocHtml.processResponse): unrecognised command");
+                System.out.println(jo);
+            }
+        }
     }
 
     public void updateAxiom(String name, String latex) {

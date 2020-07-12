@@ -23,6 +23,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
@@ -54,6 +55,49 @@ public class HPAController {
     private AxiomHtmlDoc axiomDoc;
     private InputHtmlDoc inputDoc;
     private ProofHtmlDoc proofDoc;
+
+    public static class PredicateMatching {
+        private final StringProperty patternVariable = new SimpleStringProperty();
+        private final StringProperty type = new SimpleStringProperty();
+        private final StringProperty matchedName = new SimpleStringProperty();
+
+        public PredicateMatching(String patvar, String t, String name) {
+            setPatternVariable(patvar);
+            setType(t);
+            setMatchedName(name);
+        }
+
+        public final StringProperty patternVariableProperty() {
+            return this.patternVariable;
+        }
+        public final String getPatternVariable() {
+            return this.patternVariableProperty().get();
+        }
+        public final void setPatternVariable(final String patvar) {
+            this.patternVariableProperty().set(patvar);
+        }
+
+        public final StringProperty typeProperty() {
+            return this.type;
+        }
+        public final String getType() {
+            return this.typeProperty().get();
+        }
+        public final void setType(final String type) {
+            this.typeProperty().set(type);
+        }
+
+        public final StringProperty matchedNameProperty() {
+            return this.matchedName;
+        }
+        public final String getMatchedName() {
+            return this.matchedNameProperty().get();
+        }
+        public final void setMatchedName(final String name) {
+            this.matchedNameProperty().set(name);
+        }
+
+    }
 
     // view variables
     @FXML
@@ -118,12 +162,13 @@ public class HPAController {
         updateActionControls();
 
         // get list of axioms
-        sendCommand(HPACommand.listAxioms());
+        sendCommand(HPACommand.listAxioms("axiomDoc"));
     }
 
+    // could inline this
     private void initializeContent() {
         // set up Axiom web view
-        axiomDoc = new AxiomHtmlDoc(this.displayAxioms.getEngine());
+        axiomDoc = new AxiomHtmlDoc(this, this.displayAxioms.getEngine());
         // set up input web view
         inputDoc = new InputHtmlDoc(this, this.displayInput.getEngine());
         // set up proof display
@@ -131,12 +176,9 @@ public class HPAController {
 
     }
 
-    public void sendCommand(String cmd) {
-        //System.out.println("Sending command... " + cmd);
-        if(cmd == null) return;
+    public void sendCommand(JSONObject cmdObj) {
         try {
-            //System.out.println(cmd);
-            this.hpaWriter.write(cmd);
+            this.hpaWriter.write(cmdObj.toString());
             this.hpaWriter.newLine();
             this.hpaWriter.flush();
         } catch (Exception ex) {
@@ -145,304 +187,76 @@ public class HPAController {
         }
     }
 
+    public void displayMessage(String msg) {
+        Platform.runLater(() -> infoLabel.setText(msg));
+    }
+
     public void processOutput(String str) {
-        //System.out.println("Processing response... " + str);
-        JSONObject jo;
-        //System.out.println(str);
-        // try and parse the line
-        // parse into JSON object
-        jo = new JSONObject(new JSONTokener(str));
+        /*
+         * update send command, so command has an id and is saved
+         * update HPACommand to include source etc, it should return a JSONObject (so we can add cmdId)
+         * Get cmd, cmdId, source, and status
+         * for commands that we recognise
+         *   check status
+         *   if OK, send JSONObject to relevant DOC
+         *   if FAIL, display relevant error message, remove from saved list, return
+         */
+        try {
+            // try to parse the JSONObject
+            JSONObject jo;
+            jo = new JSONObject(new JSONTokener(str)); // check what exceptions are thrown?
+            // get cmd, source, and status
+            String cmd = (String)jo.get("cmd");
+            String handler = (String)jo.get("handler");
+            String status = (String)jo.get("status");
+            // if we succeeded
+            if(status.equals("OK")) {
+                switch(handler) {
+                    case "inputDoc" -> inputDoc.processResponse(cmd, jo);
+                    case "axiomDoc" -> axiomDoc.processResponse(cmd, jo);
+                    case "proofDoc" -> proofDoc.processResponse(cmd, jo);
+                    default -> {
+                        System.out.println("Error(HPAController.processOutput): unknown handler");
+                        System.out.println(str);
+                    }
+                }
+            } else {
+                // TODO: remove from saved list of commands
+                // anything other than OK is a fail
+                switch(cmd) {
+                    case "axioms" -> displayMessage("Failed to retrieve axioms");
+                    case "print" -> displayMessage("Failed to generate latex");
+                    case "read" -> {
+                        if(handler.equals("inputDoc")) inputDoc.failedRead(jo);
+                        else {
+                            System.out.println("Error(HPAController.processOutput): unexpected source of failed read command");
+                            System.out.println(str);
+                        }
+                    }
+                    case "assume" -> displayMessage("Unable to assume predicate");
+                    case "details" -> System.out.println("Error(HPAController.processOutput): unable to get predicate details");
+                    case "instantiateSchema" -> displayMessage("Unable to instantiate schema");
+                    case "modusPonens" -> displayMessage("Unable to perform modus ponens");
+                    case "instantiateAt" -> displayMessage("Unable to instatiate predicate with variable");
+                    case "splitAnd" -> displayMessage("Unable to split predicate");
+                    case "setFocus" -> displayMessage("Unable to set focus");
+                    case "moveFocus" -> displayMessage("Unable to move focus");
+                    case "transformFocus" -> displayMessage("Unable to transform focus");
+                    case "recordFocus" -> displayMessage("Unable to record focus");
+                    case "clearFocus" -> displayMessage("Unable to clear focus");
+                    case "generalise" -> displayMessage("Unable to generalise predicate with variable");
+                    case "liftResult" -> displayMessage("Unable to lift result");
+                    default -> {
+                        System.out.println("Error(HPAController.processOutput): unrecognised command failed");
+                        System.out.println(str);
+                    }
+                }
+            }
 
-        // check status (TODO: maybe drop this, check status in other methods?)
-        String status = (String)jo.get("status");
-        if(status == null) {
-            System.out.println("Error: status field expected");
+        } catch(JSONException | ClassCastException je) {
+            System.out.println("Error(HPAController.processOutput): invalid JSON object received");
             System.out.println(str);
-            return;
         }
-
-        // switch based on cmd
-        String cmd = (String)jo.get("cmd");
-        if(cmd == null) {
-            System.out.println("Error: no command field");
-            System.out.println(str);
-            return;
-        }
-
-        switch (cmd) {
-            case "axioms" -> processAxiomList(jo);
-            case "print" -> processPrint(jo);
-            case "read" -> processRead(jo);
-            case "assume" -> processAssume(jo);
-            case "details" -> processDetails(jo);
-            case "instantiateSchema" -> processIS(jo);
-            case "modusPonens" -> processMP(jo);
-            case "instantiateAt" -> processIA(jo);
-            case "splitAnd" -> processSA(jo);
-            case "setFocus" -> processSF(jo);
-            case "moveFocus" -> processMF(jo);
-            case "transformFocus" -> processTF(jo);
-            case "recordFocus" -> processRF(jo);
-            case "clearFocus" -> processCF(jo);
-            case "generalise" -> processGW(jo);
-            case "liftResult" -> processLR(jo);
-            default -> {
-                System.out.println("Error(HPAController.processOutput): unrecognised command");
-                System.out.println(str);
-            }
-        }
-
-    }
-
-    // TODO: these could be inlined
-    private void processAxiomList(JSONObject jo) {
-        //System.out.println("ProcessAxiomList");
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            System.out.println("Error: failed to retrieve axioms");
-            System.out.println(jo.toString());
-            return;
-        }
-        // get the list of axioms
-        JSONArray resArray = jo.getJSONArray("result");
-        if(resArray == null) {
-            System.out.println("Error: no result field");
-            System.out.println(jo.toString());
-            return;
-        }
-        // iterate through the list
-        for (Object axiom : resArray) {
-            if (axiom != null) {
-                // get the latex for the axiom
-                sendCommand(HPACommand.printAxiom(axiom.toString()));
-            }
-        }
-    }
-
-    private void processPrint(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            System.out.println("Error: failed to print");
-            System.out.println(jo.toString());
-            return;
-        }
-        // check type
-        String type = (String)jo.get("type");
-        if(type == null) {
-            System.out.println("Error: no type field");
-            System.out.println(jo.toString());
-            return;
-        }
-        String name = (String) jo.get("name");
-        String latex = (String) jo.get("result");
-        if(name == null || latex == null) {
-            System.out.println("Error(HPAController.processPrint): no name field or no result field");
-            System.out.println(jo.toString());
-            return;
-        }
-        // process by type
-        switch (type) {
-            case "axiom" -> axiomDoc.updateAxiom(name, latex);
-            case "proofstep" -> proofDoc.updateResult(name, latex);
-            default -> {
-                System.out.println("Error(HPAController.processPrint): unrecognised type");
-                System.out.println(jo.toString());
-            }
-        }
-
-    }
-
-    private void processRead(JSONObject jo) {
-        //System.out.println("HPAController.processRead");
-        //System.out.println(jo.toString());
-        // check source
-        String source = jo.getString("source");
-        if(source == null) {
-            System.out.println("Error: no source field");
-            System.out.println(jo.toString());
-            return;
-        }
-        // switch on source
-        switch(source) {
-            case "InputHtmlDoc":
-                inputDoc.processRead(jo);
-                break;
-            default:
-                System.out.println("Error: unknown source");
-                System.out.println(jo.toString());
-                break;
-        }
-    }
-
-    private void processAssume(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to assume predicate...");
-            System.out.println("Error(HPAController.processAssume): unable to assume predicate");
-            System.out.println(jo.toString());
-            return;
-        }
-        // if status OK, send to proofDoc
-        proofDoc.processAssume(jo);
-    }
-
-    private void processIS(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to instantiate schema...");
-            System.out.println("Error(HPAController.processAssume): unable to instantiate schema");
-            System.out.println(jo.toString());
-            return;
-        }
-        // status is OK
-        proofDoc.processIS(jo);
-    }
-
-    private void processGW(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to generalise result...");
-            System.out.println("Error(HPAController.processGW): unable to generalise result");
-            System.out.println(jo.toString());
-            return;
-        }
-        // status is OK
-        proofDoc.processGW(jo);
-    }
-
-    private void processMP(JSONObject jo)  {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to apply modus ponens...");
-            System.out.println("Error(HPAController.processModusPonens): unable to apply");
-            System.out.println(jo.toString());
-            return;
-        }
-        // status is OK
-        proofDoc.processMP(jo);
-    }
-
-    private void processIA(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to instantiate at...");
-            System.out.println("Error(HPAController.processIA): unable to instantiate at");
-            System.out.println(jo.toString());
-            return;
-        }
-        // status is OK
-        proofDoc.processIA(jo);
-    }
-
-    private void processSA(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to split and...");
-            System.out.println("Error(HPAController.processSA): unable to split and");
-            System.out.println(jo.toString());
-            return;
-        }
-        // status is OK
-        proofDoc.processSA(jo);
-    }
-
-    private void processSF(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to set focus...");
-            System.out.println("Error(HPAController.processSF): unable to set focus");
-            System.out.println(jo.toString());
-            return;
-        }
-        // status is OK
-        proofDoc.processSF(jo);
-    }
-
-    private void processMF(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to move focus...");
-            System.out.println("Error(HPAController.processMF): unable to move focus");
-            System.out.println(jo.toString());
-            return;
-        }
-        // status is OK
-        proofDoc.processMF(jo);
-    }
-
-    private void processTF(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to transform focus...");
-            System.out.println("Error(HPAController.processTF): unable to transform focus");
-            System.out.println(jo.toString());
-            return;
-        }
-        // status is OK
-        proofDoc.processTF(jo);
-    }
-
-    private void processRF(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to record focus...");
-            System.out.println("Error(HPAController.processRF): unable to record focus");
-            System.out.println(jo.toString());
-            return;
-        }
-        // status is OK
-        proofDoc.processRF(jo);
-    }
-
-    private void processCF(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to clear focus...");
-            System.out.println("Error(HPAController.processCF): unable to clear focus");
-            System.out.println(jo.toString());
-            return;
-        }
-        // status is OK
-        proofDoc.processCF(jo);
-    }
-
-    private void processLR(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to lift result...");
-            System.out.println("Error(HPAController.processLR): unable to lift result");
-            System.out.println(jo.toString());
-            return;
-        }
-        // status is OK
-        proofDoc.processLR(jo);
-    }
-
-    private void processDetails(JSONObject jo) {
-        // check status
-        String status = (String)jo.get("status");
-        if(status.equals("FAIL")) {
-            displayMessage("Unable to get result details...");
-            System.out.println("Error(HPAController.processAssume): unable to get details of result");
-            System.out.println(jo.toString());
-            return;
-        }
-        // if status OK, send to proofDoc
-        proofDoc.processDetails(jo);
     }
 
     @FXML
@@ -804,6 +618,8 @@ public class HPAController {
         if(controls != null) actionGroup.getChildren().add(controls);
     }
 
+    /* action functions */
+
     private void instantiateSchema(String name, String schemaName, ObservableList<PredicateMatching> matching) {
         // check we have a name
         if(name == null || name.length() == 0) {
@@ -829,7 +645,7 @@ public class HPAController {
             ix++;
         }
         // send command
-        sendCommand(HPACommand.instantiateSchema(proofDoc.getNextResultNum(),name,schemaName,patvars,predicates));
+        sendCommand(HPACommand.instantiateSchema("proofDoc", name,schemaName,patvars,predicates));
     }
 
     private void instantiateAt(String name, String fan, String xn) {
@@ -847,7 +663,7 @@ public class HPAController {
             displayMessage("Please provide variable name");
             return;
         }
-        sendCommand(HPACommand.instantiateAt(name, fan, xvar));
+        sendCommand(HPACommand.instantiateAt("proofDoc", name, fan, xvar));
     }
 
     private void liftResult(String name, String result, String assumption) {
@@ -867,7 +683,7 @@ public class HPAController {
             return;
         }
         // send message
-        sendCommand(HPACommand.liftResult(name,result,assumption));
+        sendCommand(HPACommand.liftResult("proofDoc", name,result,assumption));
     }
 
     private void generaliseWith(String name, String resultName, String variableName) {
@@ -888,7 +704,7 @@ public class HPAController {
             return;
         }
         // send message
-        sendCommand(HPACommand.generalise(name,resultName,variable));
+        sendCommand(HPACommand.generalise("proofDoc", name, resultName, variable));
     }
 
     private void deduce(String name, String pimpq, String p) {
@@ -904,7 +720,7 @@ public class HPAController {
             displayMessage("Please provide P predicate");
             return;
         }
-        sendCommand(HPACommand.modusPonens(name, pimpq, p));
+        sendCommand(HPACommand.modusPonens("proofDoc", name, pimpq, p));
     }
 
     private void assume(String name, String predicateName) {
@@ -920,7 +736,7 @@ public class HPAController {
             return;
         }
         // send message
-        sendCommand(HPACommand.assume(name,predicate,proofDoc.getNextResultNum()));
+        sendCommand(HPACommand.assume("proofDoc", name, predicate));
     }
 
     private void split(String pname, String qname, String pandq) {
@@ -945,7 +761,7 @@ public class HPAController {
             return;
         }
         // send message
-        sendCommand(HPACommand.splitAnd(pname,qname,pandq));
+        sendCommand(HPACommand.splitAnd("proofDoc", pname, qname, pandq));
     }
 
     private void setFocus(String name) {
@@ -954,7 +770,7 @@ public class HPAController {
             displayMessage("Please provide name for predicate to focus on");
             return;
         }
-        sendCommand(HPACommand.setFocus(name));
+        sendCommand(HPACommand.setFocus("proofDoc", name));
     }
 
     private void recordFocus(String name) {
@@ -963,7 +779,7 @@ public class HPAController {
             displayMessage("Please provide name for recording focus");
             return;
         }
-        sendCommand(HPACommand.recordFocus(name));
+        sendCommand(HPACommand.recordFocus("proofDoc", name));
     }
 
     private void moveFocus(String direction, String branch) {
@@ -975,16 +791,16 @@ public class HPAController {
         // we have a direction
         boolean validDirection = true;
         switch(direction) {
-            case "up" -> sendCommand(HPACommand.moveFocus(HPACommand.MoveUp));
-            case "right" -> sendCommand(HPACommand.moveFocus(HPACommand.MoveRight));
-            case "down" -> sendCommand(HPACommand.moveFocus(HPACommand.MoveDown));
-            case "left" -> sendCommand(HPACommand.moveFocus(HPACommand.MoveLeft));
+            case "up" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveUp));
+            case "right" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveRight));
+            case "down" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveDown));
+            case "left" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveLeft));
             case "branch" -> {
                 // try to read which branch
                 try {
                     int b = Integer.parseInt(branch);
                     if(b > 0) {
-                        sendCommand(HPACommand.moveFocus(b,true));
+                        sendCommand(HPACommand.moveFocus("proofDoc", b,true));
                     }
                     else {
                         validDirection = false;
@@ -1007,65 +823,18 @@ public class HPAController {
             displayMessage("Please provide a transformation law");
             return;
         }
-        sendCommand(HPACommand.transformFocus(logiclaw));
+        sendCommand(HPACommand.transformFocus("proofDoc", logiclaw));
     }
 
     private void clearFocus() {
-        sendCommand(HPACommand.clearFocus());
+        sendCommand(HPACommand.clearFocus("proofDoc"));
     }
 
-    public void displayMessage(String msg) {
-        Platform.runLater(() -> infoLabel.setText(msg));
-    }
-
+    /* clean up */
     public void cleanUp() {
         //System.out.println("Cleaning up...");
         this.hpaProcess.destroy();
         this.hpaListener.cancel();
     }
-
-    public static class PredicateMatching {
-        private final StringProperty patternVariable = new SimpleStringProperty();
-        private final StringProperty type = new SimpleStringProperty();
-        private final StringProperty matchedName = new SimpleStringProperty();
-
-        public PredicateMatching(String patvar, String t, String name) {
-            setPatternVariable(patvar);
-            setType(t);
-            setMatchedName(name);
-        }
-
-        public final StringProperty patternVariableProperty() {
-            return this.patternVariable;
-        }
-        public final String getPatternVariable() {
-            return this.patternVariableProperty().get();
-        }
-        public final void setPatternVariable(final String patvar) {
-            this.patternVariableProperty().set(patvar);
-        }
-
-        public final StringProperty typeProperty() {
-            return this.type;
-        }
-        public final String getType() {
-            return this.typeProperty().get();
-        }
-        public final void setType(final String type) {
-            this.typeProperty().set(type);
-        }
-
-        public final StringProperty matchedNameProperty() {
-            return this.matchedName;
-        }
-        public final String getMatchedName() {
-            return this.matchedNameProperty().get();
-        }
-        public final void setMatchedName(final String name) {
-            this.matchedNameProperty().set(name);
-        }
-
-    }
-
 }
 

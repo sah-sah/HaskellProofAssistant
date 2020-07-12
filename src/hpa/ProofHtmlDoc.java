@@ -159,7 +159,7 @@ public class ProofHtmlDoc {
         updateFocus();
         // load the webpage
         Platform.runLater(() -> engine.loadContent(htmlHeader + bodyStart + bodyMiddle + bodyFocus + bodyEnd));
-        System.out.println(htmlHeader + bodyStart + bodyMiddle + bodyFocus + bodyEnd);
+        //System.out.println(htmlHeader + bodyStart + bodyMiddle + bodyFocus + bodyEnd);
     }
 
     private void updateMiddle() {
@@ -174,6 +174,76 @@ public class ProofHtmlDoc {
             }
         }
         bodyMiddle = middle.toString();
+    }
+
+    public void processResponse(String cmd, JSONObject jo) {
+        switch(cmd) {
+            case "assume" -> addResult(jo);
+            case "details" -> processDetails(jo);
+            case "instantiateSchema" -> addResult(jo);
+            case "modusPonens" -> addResult(jo);
+            case "instantiateAt" -> addResult(jo);
+            case "splitAnd" -> { addResult(jo, "pname"); addResult(jo, "qname"); }
+            case "setFocus" -> {
+                try {
+                    this.focus = new ProofItem("focus", (String)jo.get("focus"));
+                    load();
+                    owner.displayMessage("Updated focus...");
+                } catch (JSONException | ClassCastException je) {
+                    System.out.println("Error(ProofHtmlDoc.processResponse): missing or empty focus field when setting focus");
+                    System.out.println(jo);
+                }
+            }
+            case "moveFocus", "transformFocus" -> {
+                try {
+                    this.focus.latex = (String)jo.get("focus");
+                    load();
+                    owner.displayMessage("Updated focus...");
+                } catch (JSONException | ClassCastException je) {
+                    System.out.println("Error(ProofHtmlDoc.processResponse): missing or empty focus field when moving or transforming focus");
+                    System.out.println(jo);
+                }
+
+            }
+            case "recordFocus" -> addResult(jo);
+            case "clearFocus" -> {
+                this.focus = null;
+                load();
+                owner.displayMessage("Cleared focus...");
+            }
+            case "generalise" -> addResult(jo);
+            case "liftResult" -> addResult(jo);
+            default -> {
+                System.out.println("Error(ProofHtmlDoc.processResponse): unrecognised command");
+                System.out.println(jo);
+            }
+        }
+    }
+
+    private void addResult(JSONObject jo, String nameKey) {
+        try {
+            String name = (String)jo.get(nameKey);
+            resultList.add(new ProofItem(name));
+            owner.sendCommand(HPACommand.printDetails("proofDoc", name));
+        } catch (JSONException | ClassCastException je) {
+            System.out.println("Error(ProofHtmlDoc.processResponse): invalid JSON object");
+            System.out.println(jo);
+        }
+    }
+
+    private void addResult(JSONObject jo) { addResult(jo, "name"); }
+
+    public void updateResult(String name, String latex) {
+        for(ProofItem pi : resultList) {
+            if(pi.name.equals(name)) {
+                pi.latex = latex;
+                // update display
+                load();
+                owner.displayMessage("Updated proof..."); // this won't always be from an assumption
+                return;
+            }
+        }
+        System.out.println("Error(ProofHtmlDoc.updateResult): result with name " + name + " not found.");
     }
 
     private void updateFocus() {
@@ -213,178 +283,6 @@ public class ProofHtmlDoc {
 
     public int getNextResultNum() {
         return resultList.size() + 1;
-    }
-
-    public void processAssume(JSONObject jo) {
-        // add the new result
-        /*
-        try {
-            int ix = Integer.valueOf((String)jo.get("index"));
-        } catch (Exception e) {
-            System.out.println("Error(ProofHtmlDoc.processAssume): missing or unrecognised index field");
-            System.out.println(e);
-            return;
-        }
-        */
-        String name = (String)jo.get("name");
-        if(name == null || name.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processAssume): missing or empty name field");
-            return;
-        }
-        // add the new result
-        resultList.add(new ProofItem(name, null));
-        // send command to get latex of name
-        owner.sendCommand(HPACommand.printDetails(name));
-    }
-
-    public void processIS(JSONObject jo) {
-        String name = (String)jo.get("name");
-        if(name == null || name.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processIS): missing or empty name field");
-            return;
-        }
-        // add the new result
-        resultList.add(new ProofItem(name, null));
-        // send command to get latex of name
-        owner.sendCommand(HPACommand.printDetails(name));
-    }
-
-    public void processGW(JSONObject jo) {
-        String name = (String)jo.get("name");
-        if(name == null || name.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processGW): missing or empty name field");
-            return;
-        }
-        // add the new result
-        resultList.add(new ProofItem(name, null));
-        // send command to get latex of name
-        owner.sendCommand(HPACommand.printDetails(name));
-    }
-
-    // TODO: could have a general addResult function here
-    public void processIA(JSONObject jo) {
-        String name = (String)jo.get("name");
-        if(name == null || name.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processIA): missing or empty name field");
-            return;
-        }
-        // add the new result
-        resultList.add(new ProofItem(name, null));
-        // send command to get latex of name
-        owner.sendCommand(HPACommand.printDetails(name));
-    }
-
-    public void processMP(JSONObject jo) {
-        String name = (String)jo.get("name");
-        if(name == null || name.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processMP): missing or empty name field");
-            return;
-        }
-        // add the new result
-        resultList.add(new ProofItem(name, null));
-        // send command to get latex of name
-        owner.sendCommand(HPACommand.printDetails(name));
-    }
-
-    public void processSA(JSONObject jo) {
-        // name of P
-        String pname = (String)jo.get("pname");
-        if(pname == null || pname.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processSA): missing or empty pname field");
-            System.out.println(jo);
-            return;
-        }
-        // add the new result
-        resultList.add(new ProofItem(pname, null));
-        // send command to get latex of name
-        owner.sendCommand(HPACommand.printDetails(pname));
-        // name of Q
-        String qname = (String)jo.get("qname");
-        if(qname == null || qname.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processSA): missing or empty qname field");
-            System.out.println(jo);
-            return;
-        }
-        // add the new result
-        resultList.add(new ProofItem(qname, null));
-        // send command to get latex of name
-        owner.sendCommand(HPACommand.printDetails(qname));
-    }
-
-    public void processSF(JSONObject jo) {
-        // get focus
-        String latex = (String)jo.get("focus");
-        if(latex == null || latex.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processSF): missing or empty focus field");
-            System.out.println(jo);
-            return;
-        }
-        this.focus = new ProofItem("focus", latex);
-        load();
-        owner.displayMessage("Updated focus...");
-        //System.out.println(latex);
-    }
-
-    public void processMF(JSONObject jo) {
-        // get focus
-        String latex = (String)jo.get("focus");
-        if(latex == null || latex.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processMF): missing or empty focus field");
-            System.out.println(jo);
-            return;
-        }
-        this.focus.latex = latex;
-        load();
-        owner.displayMessage("Updated focus...");
-        //System.out.println(latex);
-    }
-
-    public void processTF(JSONObject jo) {
-        // get focus
-        String latex = (String)jo.get("focus");
-        if(latex == null || latex.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processTF): missing or empty focus field");
-            System.out.println(jo);
-            return;
-        }
-        this.focus.latex = latex;
-        load();
-        owner.displayMessage("Updated focus...");
-        //System.out.println(latex);
-    }
-
-    public void processRF(JSONObject jo) {
-        // get focus
-        String name = (String)jo.get("name");
-        if(name == null || name.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processRF): missing or empty name field");
-            System.out.println(jo);
-            return;
-        }
-        // add the new result
-        resultList.add(new ProofItem(name, null));
-        // send command to get latex of name
-        owner.sendCommand(HPACommand.printDetails(name));
-    }
-
-    public void processLR(JSONObject jo) {
-        // get focus
-        String name = (String)jo.get("name");
-        if(name == null || name.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.processLR): missing or empty name field");
-            System.out.println(jo);
-            return;
-        }
-        // add the new result
-        resultList.add(new ProofItem(name, null));
-        // send command to get latex of name
-        owner.sendCommand(HPACommand.printDetails(name));
-    }
-
-    public void processCF(JSONObject jo) {
-        this.focus = null;
-        load();
-        owner.displayMessage("Cleared focus...");
     }
 
     public void processDetails(JSONObject jo) {
@@ -437,36 +335,6 @@ public class ProofHtmlDoc {
             System.out.println("Error(ProofHtmlDoc.processDetails): invalid JSON data");
             System.out.println(jo);
         }
-    }
-
-    /*
-    could have an addResult that takes String identifying the key used for the result name
-    public void addResult(JSONObject jo) {
-        String name = (String)jo.get("name");
-        if(name == null || name.length() == 0) {
-            System.out.println("Error(ProofHtmlDoc.addResult): missing or empty name field");
-            System.out.println(jo);
-            return;
-        }
-        // add the new result
-        resultList.add(new ProofItem(name, null));
-        // send command to get latex of name
-        owner.sendCommand(HPACommand.printDetails(name));
-    }
-    public void addResult(JSONObject jo, String nameKey)
-    */
-
-    public void updateResult(String name, String latex) {
-        for(ProofItem pi : resultList) {
-            if(pi.name.equals(name)) {
-                pi.latex = latex;
-                // update display
-                load();
-                owner.displayMessage("Updated proof..."); // this won't always be from an assumption
-                return;
-            }
-        }
-        System.out.println("Error(ProofHtmlDoc.updateResult): result with name " + name + " not found.");
     }
 
     public ArrayList<String> getResultNames() {
