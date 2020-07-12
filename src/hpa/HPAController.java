@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
 
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import netscape.javascript.JSObject;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -135,14 +136,52 @@ public class HPAController {
     @FXML
     public void initialize() {
         // Setup interface
-        // TODO: this list should be the possible proof steps/other actions
         actionCB.setItems(proofActions);
         actionCB.setValue("Assume...");
         actionCB.setOnAction(e -> Platform.runLater(this::updateActionControls));
 
         infoLabel.setStyle("-fx-background-color: darkslateblue; -fx-text-fill: white;");
 
-        // setup model
+        // What to do if it didn't start?
+        startHPAProcess();
+
+        // setup HTML file for axioms
+        initializeContent();
+        this.saveFile = null;
+
+        // this needs to go after initializeContent
+        updateActionControls();
+
+        // get list of axioms
+        sendCommand(HPACommand.listAxioms("axiomDoc"), true);
+    }
+
+    private void initializeFromFile(JSONArray commands, JSONArray storedPredicates) {
+        // end the current process
+        this.hpaProcess.destroy();
+        this.hpaListener.cancel();
+        // restart the model
+        startHPAProcess();
+        // re-initialize the contents
+        initializeContent();
+        // run commands
+        try {
+            for (Object o : commands) {
+                JSONObject cmd = (JSONObject)o;
+                sendCommand(cmd, true);
+            }
+        } catch (ClassCastException e) {
+            System.out.println("Error(HPAController.initializeFromFile): error reading input file");
+            System.out.println(commands);
+        }
+        // add stored predicates
+        inputDoc.setStoredPredicates(storedPredicates);
+        // update display (this is only necessary if we save which control was showing when the session was saved)
+        //updateActionControls();
+    }
+
+    private void startHPAProcess() {
+        // what to do if this doesn't work?
         try {
             ProcessBuilder pb = new ProcessBuilder("C:\\Users\\Maryam\\IdeaProjects\\Stack Projects\\HML\\.stack-work\\install\\bbcfd75f\\bin\\HML-exe.exe");
             this.hpaProcess = pb.start();
@@ -156,30 +195,14 @@ public class HPAController {
             th.start();
 
             // writing to PropProver
-            this.hpaWriter =new BufferedWriter(new OutputStreamWriter(this.hpaProcess.getOutputStream()));
+            this.hpaWriter = new BufferedWriter(new OutputStreamWriter(this.hpaProcess.getOutputStream()));
         } catch (Exception ex) {
-            System.out.println("Error: unable to start PropProver");
+            System.out.println("Error: unable to start HPA model");
             System.out.println(ex);
         }
-
-        // display starting point of proof
-
-//        sendCommand(HPACommand.printPredicate("unionAxiom"));
-        //sendCommand("cp");
-
-        // setup HTML file for axioms
-        initializeContent();
-        // this needs to go after initializeContent
-        updateActionControls();
-        // session
-        hpaSession = new HPASession();
-        saveFile = null;
-
-        // get list of axioms
-        sendCommand(HPACommand.listAxioms("axiomDoc"), true);
     }
 
-    // could inline this
+    // might be better to inline this
     private void initializeContent() {
         // set up Axiom web view
         axiomDoc = new AxiomHtmlDoc(this, this.displayAxioms.getEngine());
@@ -189,7 +212,6 @@ public class HPAController {
         proofDoc = new ProofHtmlDoc(this, this.displayProof.getEngine());
         // set up session for saving
         hpaSession = new HPASession();
-
     }
 
     public void sendCommand(JSONObject cmdObj, boolean shouldSave) {
@@ -852,7 +874,7 @@ public class HPAController {
         if (this.saveFile == null) {
             // get a file to save to
             FileChooser fileChooser = new FileChooser();
-            fileChooser.setTitle("Open File");
+            fileChooser.setTitle("Save HPA Session");
             this.saveFile = fileChooser.showSaveDialog(stage);
         }
         // try to save to file
@@ -872,34 +894,33 @@ public class HPAController {
         } else {
             System.out.println("Error(HPAController.saveSession): I/O error saving to file");
         }
-
     }
-
-    /*
-    try(FileWriter fileWriter = new FileWriter(absolutePath)) {
-    String fileContent = "This is a sample text.";
-    fileWriter.write(fileContent);
-    fileWriter.close();
-} catch (IOException e) {
-    // Cxception handling
-}
-
-// Read the content from file
-try(FileReader fileReader = new FileReader(absolutePath)) {
-    int ch = fileReader.read();
-    while(ch != -1) {
-        System.out.print((char)ch);
-        fileReader.close();
-    }
-} catch (FileNotFoundException e) {
-    // Exception handling
-} catch (IOException e) {
-    // Exception handling
-}
-     */
 
     public void loadSession(ActionEvent actionEvent) {
-        System.out.println("Load");
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Open HPA Session");
+        this.saveFile = fileChooser.showOpenDialog(stage);
+
+        try {
+            // read file
+            FileReader fileReader = new FileReader(this.saveFile);
+            StringBuilder contents = new StringBuilder();
+            int ch = fileReader.read();
+            while (ch != -1) {
+                contents.append((char)ch);
+                ch = fileReader.read();
+            }
+            System.out.println(contents.toString());
+            // try to parse file
+            JSONObject jo = new JSONObject(new JSONTokener(contents.toString()));
+            JSONArray commands = jo.getJSONArray("commands");
+            JSONArray storedPredicates = jo.getJSONArray("storedPredicates");
+            initializeFromFile(commands, storedPredicates);
+
+        } catch (IOException | JSONException e) {
+            // dialog for unable to read file
+            System.out.println("Error(HPAController.loadSession): error reading file");
+        }
     }
 
     /* clean up */

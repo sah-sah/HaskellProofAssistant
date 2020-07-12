@@ -193,6 +193,32 @@ public class InputHtmlDoc {
         load();
     }
 
+    public void setStoredPredicates(JSONArray storedPredicates) {
+        // should be an array of namedPredicates
+        try {
+            for (Object o : storedPredicates) {
+                // get named predicate data
+                JSONObject jo = (JSONObject) o;
+                String name = (String)jo.get("name");
+                String predicateRaw = (String)jo.get("predicateRaw");
+                String predicateLaTeX = (String)jo.get("predicateLaTeX");
+                // construct named predicate
+                NamedPredicate np = new NamedPredicate();
+                np.name = name;
+                np.predicateRaw = predicateRaw;
+                np.predicateLaTeX = predicateLaTeX;
+                // add to named and checked predicates list
+                namedPredicates.add(np);
+                checkedPredicates.add(np);
+                // load the table
+                load();
+            }
+        } catch (JSONException | ClassCastException e) {
+            System.out.println("Error(InputHtmlDoc.setStoredPredicates): error loading stored predicates");
+            System.out.println(storedPredicates);
+        }
+    }
+
     private void load() {
         // build the webpage
         buildNamedPredicateTable();
@@ -200,7 +226,7 @@ public class InputHtmlDoc {
         Platform.runLater(() -> engine.loadContent(htmlTop + namedPredicateTable + htmlBottom));
     }
 
-    // used in the HTML code
+    // called from the HTML code
     @SuppressWarnings("unused")
     public void checkPredicate() {
         //System.out.println("Checking predicate...");
@@ -218,7 +244,7 @@ public class InputHtmlDoc {
         }
     }
 
-    // This is used through the HTML code
+    // called from the HTML code
     @SuppressWarnings("unused")
     public void addNamedPredicate() {
         //System.out.println("addNamedPredicate");
