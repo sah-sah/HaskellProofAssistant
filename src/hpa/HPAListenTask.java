@@ -45,7 +45,7 @@ public class HPAListenTask extends Task<Void> {
             try {
                 Thread.sleep(200);
             } catch (InterruptedException e) {
-                System.out.println("ListenTask: cancelled");
+                //System.out.println("ListenTask: cancelled");
 //					System.out.println(e);
                 if(isCancelled()) return null;
             }

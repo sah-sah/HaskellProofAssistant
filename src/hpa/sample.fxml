@@ -14,7 +14,18 @@
 
 
 <?import javafx.scene.Group?>
-<BorderPane fx:controller="hpa.HPAController" xmlns:fx="http://javafx.com/fxml">
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.control.MenuItem?>
+<VBox fx:controller="hpa.HPAController" xmlns:fx="http://javafx.com/fxml">
+    <MenuBar>
+        <Menu text="File">
+            <MenuItem text="Save" onAction="#saveSession"/>
+            <MenuItem text="Load" onAction="#loadSession"/>
+        </Menu>
+    </MenuBar>
+<BorderPane>
     <center>
         <TabPane>
             <Tab text="Proof">
@@ -55,4 +66,5 @@
         </VBox>
     </bottom>
 </BorderPane>
+</VBox>
 

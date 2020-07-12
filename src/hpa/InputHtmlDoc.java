@@ -10,6 +10,7 @@ import netscape.javascript.JSObject;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -149,6 +150,14 @@ public class InputHtmlDoc {
         public String predicateLaTeX;
 
         public NamedPredicate() {}
+
+        public JSONObject toJSON() {
+            JSONObject npObj = new JSONObject();
+            npObj.put("name", name);
+            npObj.put("predicateRaw", predicateRaw);
+            npObj.put("predicateLaTeX", predicateLaTeX);
+            return npObj;
+        }
     }
     private final List<NamedPredicate> namedPredicates;
     private final List<NamedPredicate> checkedPredicates;
@@ -204,7 +213,7 @@ public class InputHtmlDoc {
         //System.out.println("Predicate to check is .. " + predicate);
         if(predicate.length() > 0) {
             // check this predicate
-            owner.sendCommand(HPACommand.readPredicate("inputDoc", predicate));
+            owner.sendCommand(HPACommand.readPredicate("inputDoc", predicate), false);
             engine.getDocument().getElementById("predicate-display").setTextContent("Checking predicate...");
         }
     }
@@ -392,5 +401,11 @@ public class InputHtmlDoc {
             names.add(np.name);
         }
         return names;
+    }
+
+    public JSONArray toJSONArray() {
+        JSONArray npArray = new JSONArray();
+        for(NamedPredicate np : namedPredicates) npArray.put(np.toJSON());
+        return npArray;
     }
 }

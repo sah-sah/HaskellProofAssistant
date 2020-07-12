@@ -166,7 +166,6 @@ public class ProofHtmlDoc {
         StringBuilder middle = new StringBuilder();
         for (ProofHtmlDoc.ProofItem ax : resultList) {
             if(ax.latex != null) {
-                System.out.println("Adding result " + ax.name);
                 // this should be in the ProofItem class
                 middle.append("<div class=\"row proof-item\">\n");
                 middle.append(ax.getHtml());
@@ -224,7 +223,7 @@ public class ProofHtmlDoc {
         try {
             String name = (String)jo.get(nameKey);
             resultList.add(new ProofItem(name));
-            owner.sendCommand(HPACommand.printDetails("proofDoc", name));
+            owner.sendCommand(HPACommand.printDetails("proofDoc", name), false);
         } catch (JSONException | ClassCastException je) {
             System.out.println("Error(ProofHtmlDoc.processResponse): invalid JSON object");
             System.out.println(jo);
@@ -232,19 +231,6 @@ public class ProofHtmlDoc {
     }
 
     private void addResult(JSONObject jo) { addResult(jo, "name"); }
-
-    public void updateResult(String name, String latex) {
-        for(ProofItem pi : resultList) {
-            if(pi.name.equals(name)) {
-                pi.latex = latex;
-                // update display
-                load();
-                owner.displayMessage("Updated proof..."); // this won't always be from an assumption
-                return;
-            }
-        }
-        System.out.println("Error(ProofHtmlDoc.updateResult): result with name " + name + " not found.");
-    }
 
     private void updateFocus() {
         StringBuilder focusHtml = new StringBuilder();

@@ -126,7 +126,7 @@ public class AxiomHtmlDoc {
                 // get the list of axioms and get their latex values
                 try {
                     JSONArray resArray = jo.getJSONArray("result");
-                    for(Object axiom : resArray) owner.sendCommand(HPACommand.printAxiom("axiomDoc", axiom.toString()));
+                    for(Object axiom : resArray) owner.sendCommand(HPACommand.printAxiom("axiomDoc", axiom.toString()), false);
                 } catch (JSONException je) {
                     System.out.println("Error(AxiomDocHtml.processResponse): invalid response JSON object");
                     System.out.println(jo);

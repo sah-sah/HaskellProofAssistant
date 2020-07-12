@@ -6,6 +6,7 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Group;
 import javafx.scene.Node;
@@ -22,6 +23,8 @@ import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -55,6 +58,14 @@ public class HPAController {
     private AxiomHtmlDoc axiomDoc;
     private InputHtmlDoc inputDoc;
     private ProofHtmlDoc proofDoc;
+    private HPASession hpaSession;
+    private File saveFile;
+
+    private Stage stage;
+
+    public void setStage(Stage primaryStage) {
+        this.stage = primaryStage;
+    }
 
     public static class PredicateMatching {
         private final StringProperty patternVariable = new SimpleStringProperty();
@@ -160,9 +171,12 @@ public class HPAController {
         initializeContent();
         // this needs to go after initializeContent
         updateActionControls();
+        // session
+        hpaSession = new HPASession();
+        saveFile = null;
 
         // get list of axioms
-        sendCommand(HPACommand.listAxioms("axiomDoc"));
+        sendCommand(HPACommand.listAxioms("axiomDoc"), true);
     }
 
     // could inline this
@@ -173,10 +187,13 @@ public class HPAController {
         inputDoc = new InputHtmlDoc(this, this.displayInput.getEngine());
         // set up proof display
         proofDoc = new ProofHtmlDoc(this, this.displayProof.getEngine());
+        // set up session for saving
+        hpaSession = new HPASession();
 
     }
 
-    public void sendCommand(JSONObject cmdObj) {
+    public void sendCommand(JSONObject cmdObj, boolean shouldSave) {
+        if(shouldSave) hpaSession.recordCommand(cmdObj);
         try {
             this.hpaWriter.write(cmdObj.toString());
             this.hpaWriter.newLine();
@@ -645,7 +662,7 @@ public class HPAController {
             ix++;
         }
         // send command
-        sendCommand(HPACommand.instantiateSchema("proofDoc", name,schemaName,patvars,predicates));
+        sendCommand(HPACommand.instantiateSchema("proofDoc", name,schemaName,patvars,predicates), true);
     }
 
     private void instantiateAt(String name, String fan, String xn) {
@@ -663,7 +680,7 @@ public class HPAController {
             displayMessage("Please provide variable name");
             return;
         }
-        sendCommand(HPACommand.instantiateAt("proofDoc", name, fan, xvar));
+        sendCommand(HPACommand.instantiateAt("proofDoc", name, fan, xvar), true);
     }
 
     private void liftResult(String name, String result, String assumption) {
@@ -683,7 +700,7 @@ public class HPAController {
             return;
         }
         // send message
-        sendCommand(HPACommand.liftResult("proofDoc", name,result,assumption));
+        sendCommand(HPACommand.liftResult("proofDoc", name,result,assumption), true);
     }
 
     private void generaliseWith(String name, String resultName, String variableName) {
@@ -704,7 +721,7 @@ public class HPAController {
             return;
         }
         // send message
-        sendCommand(HPACommand.generalise("proofDoc", name, resultName, variable));
+        sendCommand(HPACommand.generalise("proofDoc", name, resultName, variable), true);
     }
 
     private void deduce(String name, String pimpq, String p) {
@@ -720,7 +737,7 @@ public class HPAController {
             displayMessage("Please provide P predicate");
             return;
         }
-        sendCommand(HPACommand.modusPonens("proofDoc", name, pimpq, p));
+        sendCommand(HPACommand.modusPonens("proofDoc", name, pimpq, p), true);
     }
 
     private void assume(String name, String predicateName) {
@@ -736,7 +753,7 @@ public class HPAController {
             return;
         }
         // send message
-        sendCommand(HPACommand.assume("proofDoc", name, predicate));
+        sendCommand(HPACommand.assume("proofDoc", name, predicate), true);
     }
 
     private void split(String pname, String qname, String pandq) {
@@ -761,7 +778,7 @@ public class HPAController {
             return;
         }
         // send message
-        sendCommand(HPACommand.splitAnd("proofDoc", pname, qname, pandq));
+        sendCommand(HPACommand.splitAnd("proofDoc", pname, qname, pandq), true);
     }
 
     private void setFocus(String name) {
@@ -770,7 +787,7 @@ public class HPAController {
             displayMessage("Please provide name for predicate to focus on");
             return;
         }
-        sendCommand(HPACommand.setFocus("proofDoc", name));
+        sendCommand(HPACommand.setFocus("proofDoc", name), true);
     }
 
     private void recordFocus(String name) {
@@ -779,7 +796,7 @@ public class HPAController {
             displayMessage("Please provide name for recording focus");
             return;
         }
-        sendCommand(HPACommand.recordFocus("proofDoc", name));
+        sendCommand(HPACommand.recordFocus("proofDoc", name), true);
     }
 
     private void moveFocus(String direction, String branch) {
@@ -791,16 +808,16 @@ public class HPAController {
         // we have a direction
         boolean validDirection = true;
         switch(direction) {
-            case "up" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveUp));
-            case "right" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveRight));
-            case "down" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveDown));
-            case "left" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveLeft));
+            case "up" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveUp), true);
+            case "right" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveRight), true);
+            case "down" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveDown), true);
+            case "left" -> sendCommand(HPACommand.moveFocus("proofDoc", HPACommand.MoveLeft), true);
             case "branch" -> {
                 // try to read which branch
                 try {
                     int b = Integer.parseInt(branch);
                     if(b > 0) {
-                        sendCommand(HPACommand.moveFocus("proofDoc", b,true));
+                        sendCommand(HPACommand.moveFocus("proofDoc", b,true), true);
                     }
                     else {
                         validDirection = false;
@@ -823,11 +840,66 @@ public class HPAController {
             displayMessage("Please provide a transformation law");
             return;
         }
-        sendCommand(HPACommand.transformFocus("proofDoc", logiclaw));
+        sendCommand(HPACommand.transformFocus("proofDoc", logiclaw), true);
     }
 
     private void clearFocus() {
-        sendCommand(HPACommand.clearFocus("proofDoc"));
+        sendCommand(HPACommand.clearFocus("proofDoc"), true);
+    }
+
+    /* saving and loading */
+    public void saveSession(ActionEvent actionEvent) {
+        if (this.saveFile == null) {
+            // get a file to save to
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Open File");
+            this.saveFile = fileChooser.showSaveDialog(stage);
+        }
+        // try to save to file
+        if (this.saveFile != null) {
+            try {
+                FileWriter fileWriter = new FileWriter(this.saveFile);
+                // get proof details
+                JSONObject session = new JSONObject();
+                session.put("commands", hpaSession.toJSONArray());
+                session.put("storedPredicates", inputDoc.toJSONArray());
+                fileWriter.write(session.toString());
+                fileWriter.close();
+            } catch (IOException e) {
+                // TODO: this should be displayed in a dialog box
+                System.out.println("Error(HPAController.saveSession): I/O error saving to file");
+            }
+        } else {
+            System.out.println("Error(HPAController.saveSession): I/O error saving to file");
+        }
+
+    }
+
+    /*
+    try(FileWriter fileWriter = new FileWriter(absolutePath)) {
+    String fileContent = "This is a sample text.";
+    fileWriter.write(fileContent);
+    fileWriter.close();
+} catch (IOException e) {
+    // Cxception handling
+}
+
+// Read the content from file
+try(FileReader fileReader = new FileReader(absolutePath)) {
+    int ch = fileReader.read();
+    while(ch != -1) {
+        System.out.print((char)ch);
+        fileReader.close();
+    }
+} catch (FileNotFoundException e) {
+    // Exception handling
+} catch (IOException e) {
+    // Exception handling
+}
+     */
+
+    public void loadSession(ActionEvent actionEvent) {
+        System.out.println("Load");
     }
 
     /* clean up */
